@@ -10,13 +10,17 @@
 #ifndef TURN_BASED_ADVENTURE_GAME_BATTLE_STATE_H
 #define TURN_BASED_ADVENTURE_GAME_BATTLE_STATE_H
 
+#include <string>
+
 namespace TurnBasedGame {
 
 enum class BattleState {
-
-    // TO DO: Define battle state enumeration values
- 
+    READY,
+    IN_PROGRESS,
+    FINISHED
 };
+
+std::string battleStateToString(BattleState state);
 
 } // namespace TurnBasedGame
 

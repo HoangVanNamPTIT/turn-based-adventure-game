@@ -10,18 +10,23 @@
 #ifndef TURN_BASED_ADVENTURE_GAME_WARRIOR_H
 #define TURN_BASED_ADVENTURE_GAME_WARRIOR_H
 
+#include <string>
+#include "Character.h"
+
 namespace TurnBasedGame {
 
 class Warrior : public Character {
+public:
+    Warrior(int id, const std::string& name, int maxHp, int attackPower);
+    ~Warrior() override = default;
 
-// TO DO: Implement Warrior class methods and members
+    void performAction(Character& target) override;
+
+    int getAttackPower() const;
+    bool setAttackPower(int attackPower);
 
 private:
-
-protected:
-
-public:
-   
+    int m_attackPower;
 };
 
 } // namespace TurnBasedGame
