@@ -35,7 +35,7 @@ public:
     bool heal(int amount);
     void resetToFullHealth();
 
-protected:
+private:
     int m_id;
     std::string m_name;
     int m_maxHp;
