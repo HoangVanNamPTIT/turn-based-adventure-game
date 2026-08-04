@@ -10,18 +10,32 @@
 #ifndef TURN_BASED_ADVENTURE_GAME_TEAM_H
 #define TURN_BASED_ADVENTURE_GAME_TEAM_H
 
+#include <string>
+#include <vector>
+
 namespace TurnBasedGame {
 
 class Team {
+public:
+    Team() = default;
+    Team(int id, const std::string& name, const std::vector<int>& characterIds = {});
 
-    // TO DO: Implement Team methods and members
+    int getId() const;
+    void setId(int id);
+
+    const std::string& getName() const;
+    bool setName(const std::string& name);
+
+    const std::vector<int>& getCharacterIds() const;
+    void setCharacterIds(const std::vector<int>& ids);
+    void addCharacterId(int id);
+    bool removeCharacterId(int id);
+    bool hasCharacterId(int id) const;
 
 private:
-
-protected:
-
-public:
-   
+    int m_id{0};
+    std::string m_name;
+    std::vector<int> m_characterIds;
 };
 
 } // namespace TurnBasedGame

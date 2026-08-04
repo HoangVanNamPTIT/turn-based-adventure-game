@@ -10,19 +10,19 @@
 #ifndef TURN_BASED_ADVENTURE_GAME_UTILS_H
 #define TURN_BASED_ADVENTURE_GAME_UTILS_H
 
+#include <string>
+#include <vector>
+
 namespace TurnBasedGame {
 
 namespace Utils {
+
 class Utils {
-
-	// TO DO: Implement utility methods
-
-private:
-	
-protected:
-
 public:
-	
+    static std::string trim(const std::string& str);
+    static std::vector<std::string> split(const std::string& str, char delimiter);
+    static bool isInteger(const std::string& str);
+    static int parseInt(const std::string& str, int defaultValue = 0);
 };
 
 } // namespace Utils
