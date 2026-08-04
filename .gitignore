@@ -1,0 +1,19 @@
+# Executable files
+*.exe
+*.out
+*.o
+
+# IDE and build
+.vscode/
+.idea/
+CMakeFiles/
+build/
+dist/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Assignment files (not needed in repo)
+Đề 3.txt
+Đề*.txt

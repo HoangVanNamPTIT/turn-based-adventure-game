@@ -10,18 +10,38 @@
 #ifndef TURN_BASED_ADVENTURE_GAME_MAGE_H
 #define TURN_BASED_ADVENTURE_GAME_MAGE_H
 
+#include <string>
+#include "Character.h"
+
 namespace TurnBasedGame {
 
 class Mage : public Character {
+public:
+    Mage(int id, const std::string& name, int maxHp, int maxMana,
+         int spellDamage, int manaCost, int fallbackDamage);
+    ~Mage() override = default;
 
-    // TO DO: Implement Mage class methods and members
+    void performAction(Character& target) override;
+
+    int getMaxMana() const;
+    int getCurrentMana() const;
+    int getSpellDamage() const;
+    int getManaCost() const;
+    int getFallbackDamage() const;
+
+    bool setMaxMana(int maxMana);
+    bool setCurrentMana(int currentMana);
+    bool setSpellDamage(int spellDamage);
+    bool setManaCost(int manaCost);
+    bool setFallbackDamage(int fallbackDamage);
+    void resetMana();
 
 private:
-
-protected:
-
-public:
-  
+    int m_maxMana;
+    int m_currentMana;
+    int m_spellDamage;
+    int m_manaCost;
+    int m_fallbackDamage;
 };
 
 } // namespace TurnBasedGame
