@@ -1,13 +1,312 @@
 /**
  * @file TeamManager.cpp
  * @module Team
- * @brief Skeleton implementation for TeamManager. Business logic omitted.
+ * @brief Manages collection of Team objects and persistence.
+ * @features create/delete/rename teams, add/remove characters by id, validation and listing.
+ * @input Team definitions and character existence from roster.
+ * @output Team collection for battle orchestration.
  */
 
 #include "TeamManager.h"
+#include "CharacterRoster.h"
+#include "DataFileManager.h"
+
+#include <algorithm>
+#include <fstream>
+#include <iostream>
 
 namespace TurnBasedGame {
 
-    // TO DO: Implement TeamManager methods
+bool TeamManager::createTeam(
+    int teamId,
+    const std::string& teamName) {
+
+    if (!isValidTeamId(teamId)
+        || !isValidTeamName(teamName)
+        || teamExists(teamId)
+        || teamNameExists(teamName)) {
+        return false;
+    }
+
+    m_teams.emplace_back(teamId, teamName);
+    return true;
+}
+
+bool TeamManager::deleteTeam(int teamId) {
+    TeamIterator team = findTeamById(teamId);
+    if (team == m_teams.end()) {
+        return false;
+    }
+
+    m_teams.erase(team);
+    return true;
+}
+
+bool TeamManager::renameTeam(
+    int teamId,
+    const std::string& newName) {
+
+    if (!isValidTeamName(newName)) {
+        return false;
+    }
+
+    TeamIterator team = findTeamById(teamId);
+    if (team == m_teams.end()) {
+        return false;
+    }
+
+    if (team->getName() == newName) {
+        return true;
+    }
+
+    if (isNameUsedByAnotherTeam(newName, teamId)) {
+        return false;
+    }
+
+    team->setName(newName);
+    return true;
+}
+
+Team* TeamManager::getTeamById(int teamId) {
+    TeamIterator team = findTeamById(teamId);
+    return team == m_teams.end() ? nullptr : &(*team);
+}
+
+const Team* TeamManager::getTeamById(int teamId) const {
+    ConstTeamIterator team = findTeamById(teamId);
+    return team == m_teams.cend() ? nullptr : &(*team);
+}
+
+bool TeamManager::teamExists(int teamId) const {
+    return findTeamById(teamId) != m_teams.cend();
+}
+
+bool TeamManager::teamNameExists(
+    const std::string& teamName) const {
+    return isNameUsedByAnotherTeam(teamName, -1);
+}
+
+bool TeamManager::addCharacterToTeam(
+    int teamId,
+    int characterId,
+    const CharacterRoster& roster) {
+
+    TeamIterator team = findTeamById(teamId);
+    if (team == m_teams.end()) {
+        return false;
+    }
+
+    if (characterId <= 0
+        || roster.findById(characterId) == nullptr
+        || team->hasCharacterId(characterId)
+        || team->getCharacterIds().size() >= MAX_CHARACTERS_PER_TEAM) {
+        return false;
+    }
+
+    team->addCharacterId(characterId);
+    return true;
+}
+
+bool TeamManager::removeCharacterFromTeam(
+    int teamId,
+    int characterId) {
+
+    TeamIterator team = findTeamById(teamId);
+    if (team == m_teams.end()) {
+        return false;
+    }
+
+    return team->removeCharacterId(characterId);
+}
+
+bool TeamManager::removeCharacterFromAllTeams(int characterId) {
+    if (characterId <= 0) {
+        return false;
+    }
+
+    for (auto& team : m_teams) {
+        team.removeCharacterId(characterId);
+    }
+
+    return true;
+}
+
+const std::vector<Team>& TeamManager::getAllTeams() const {
+    return m_teams;
+}
+
+void TeamManager::displayTeam(int teamId) const {
+    const Team* team = getTeamById(teamId);
+    if (team == nullptr) {
+        std::cout << "Team not found: " << teamId << std::endl;
+        return;
+    }
+
+    std::cout << "Team " << team->getId() << ": " << team->getName() << std::endl;
+    const auto& characterIds = team->getCharacterIds();
+    if (characterIds.empty()) {
+        std::cout << "  No characters assigned." << std::endl;
+        return;
+    }
+
+    std::cout << "  Characters:";
+    for (int id : characterIds) {
+        std::cout << " " << id;
+    }
+    std::cout << std::endl;
+}
+
+void TeamManager::displayAllTeams() const {
+    if (m_teams.empty()) {
+        std::cout << "No teams available." << std::endl;
+        return;
+    }
+
+    for (const auto& team : m_teams) {
+        std::cout << "Team " << team.getId() << ": " << team.getName();
+        std::cout << " [" << team.getCharacterIds().size() << " members]" << std::endl;
+        if (!team.getCharacterIds().empty()) {
+            std::cout << "  Characters:";
+            for (int id : team.getCharacterIds()) {
+                std::cout << " " << id;
+            }
+            std::cout << std::endl;
+        }
+    }
+}
+
+void TeamManager::clear() {
+    m_teams.clear();
+}
+
+bool TeamManager::load(
+    const std::string& filePath,
+    const CharacterRoster& roster) {
+
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "TeamManager: Failed to open team file: " << filePath << std::endl;
+        return false;
+    }
+
+    std::vector<Team> loadedTeams;
+    std::string line;
+    std::size_t lineNumber = 0;
+
+    while (std::getline(file, line)) {
+        ++lineNumber;
+        if (line.empty()) {
+            continue;
+        }
+
+        Team team;
+        if (!DataFileManager::parseTeamLine(line, team)) {
+            std::cerr << "TeamManager: Skipping invalid team line "
+                      << lineNumber << "." << std::endl;
+            continue;
+        }
+
+        if (!isValidTeamId(team.getId())
+            || !isValidTeamName(team.getName())
+            || team.getCharacterIds().size() > MAX_CHARACTERS_PER_TEAM
+            || std::any_of(
+                   loadedTeams.begin(),
+                   loadedTeams.end(),
+                   [team](const Team& existing) {
+                       return existing.getId() == team.getId();
+                   })
+            || std::any_of(
+                   loadedTeams.begin(),
+                   loadedTeams.end(),
+                   [team](const Team& existing) {
+                       return existing.getName() == team.getName();
+                   })) {
+            std::cerr << "TeamManager: Skipping invalid or duplicate team line "
+                      << lineNumber << "." << std::endl;
+            continue;
+        }
+
+        const auto& characterIds = team.getCharacterIds();
+        bool valid = true;
+        std::vector<int> seenIds;
+        seenIds.reserve(characterIds.size());
+
+        for (int characterId : characterIds) {
+            if (characterId <= 0
+                || roster.findById(characterId) == nullptr
+                || std::find(seenIds.begin(), seenIds.end(), characterId) != seenIds.end()) {
+                valid = false;
+                break;
+            }
+            seenIds.push_back(characterId);
+        }
+
+        if (!valid) {
+            std::cerr << "TeamManager: Skipping team with invalid character IDs on line "
+                      << lineNumber << "." << std::endl;
+            continue;
+        }
+
+        loadedTeams.push_back(team);
+    }
+
+    file.close();
+    m_teams = std::move(loadedTeams);
+    return true;
+}
+
+bool TeamManager::save(const std::string& filePath) const {
+    return DataFileManager::saveTeams(filePath, m_teams);
+}
+
+TeamManager::TeamIterator TeamManager::findTeamById(int teamId) {
+    return std::find_if(
+        m_teams.begin(),
+        m_teams.end(),
+        [teamId](const Team& team) {
+            return team.getId() == teamId;
+        });
+}
+
+TeamManager::ConstTeamIterator TeamManager::findTeamById(
+    int teamId) const {
+    return std::find_if(
+        m_teams.cbegin(),
+        m_teams.cend(),
+        [teamId](const Team& team) {
+            return team.getId() == teamId;
+        });
+}
+
+bool TeamManager::isNameUsedByAnotherTeam(
+    const std::string& teamName,
+    int exceptTeamId) const {
+
+    return std::any_of(
+        m_teams.cbegin(),
+        m_teams.cend(),
+        [teamName, exceptTeamId](const Team& team) {
+            return team.getName() == teamName
+                && team.getId() != exceptTeamId;
+        });
+}
+
+bool TeamManager::isValidTeamId(int teamId) const {
+    return teamId > 0;
+}
+
+bool TeamManager::isValidTeamName(
+    const std::string& teamName) const {
+    if (teamName.empty()) {
+        return false;
+    }
+
+    return std::any_of(
+        teamName.begin(),
+        teamName.end(),
+        [](char character) {
+            return !std::isspace(static_cast<unsigned char>(character));
+        });
+}
 
 } // namespace TurnBasedGame
