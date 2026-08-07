@@ -34,6 +34,7 @@ public:
     bool takeDamage(int amount);
     bool heal(int amount);
     void resetToFullHealth();
+    virtual void resetBattleState();
 
 private:
     int m_id;

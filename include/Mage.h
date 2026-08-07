@@ -35,6 +35,7 @@ public:
     bool setManaCost(int manaCost);
     bool setFallbackDamage(int fallbackDamage);
     void resetMana();
+    void resetBattleState() override;
 
 private:
     int m_maxMana;

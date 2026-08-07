@@ -84,4 +84,8 @@ void Character::resetToFullHealth() {
     m_currentHp = m_maxHp;
 }
 
+void Character::resetBattleState() {
+    resetToFullHealth();
+}
+
 } // namespace TurnBasedGame
