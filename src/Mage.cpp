@@ -85,6 +85,11 @@ void Mage::resetMana() {
     m_currentMana = m_maxMana;
 }
 
+void Mage::resetBattleState() {
+    resetToFullHealth();
+    resetMana();
+}
+
 void Mage::performAction(Character& target) {
     if (!isAlive() || !target.isAlive()) {
         return;
