@@ -10,18 +10,65 @@
 #ifndef TURN_BASED_ADVENTURE_GAME_GAME_APP_H
 #define TURN_BASED_ADVENTURE_GAME_GAME_APP_H
 
+#include <iostream>
+#include <istream>
+#include <ostream>
+#include <string>
+
+#include "BattleEngine.h"
+#include "CharacterRoster.h"
+#include "Menu.h"
+#include "TeamManager.h"
+
 namespace TurnBasedGame {
 
 class GameApp {
+public:
+    explicit GameApp(std::istream& input = std::cin,
+                     std::ostream& output = std::cout);
 
-    // TO DO: Implement GameApp methods and members
+    int run();
 
 private:
+    bool initialize();
+    bool loadCharacters();
+    void loadTeams();
+    bool saveCharacters() const;
+    bool saveTeams() const;
+    bool saveData();
 
-protected:
+    void runCharacterMenu();
+    void runTeamMenu();
+    void runBattleMenu();
 
-public:
+    void handleListCharacters();
+    void handleAddWarrior();
+    void handleAddMage();
+    void handleUpdateCharacter();
+    void handleDeleteCharacter();
+    void handleSearchCharacterById();
+    void handleSearchCharacterByName();
 
+    void handleListTeams();
+    void handleViewTeam();
+    void handleCreateTeam();
+    void handleRenameTeam();
+    void handleDeleteTeam();
+    void handleAddCharacterToTeam();
+    void handleRemoveCharacterFromTeam();
+
+    void handleStartBattle();
+    void handleShowBattleStatus();
+    void handleContinueBattle();
+    void handleResetBattle();
+
+    CharacterRoster m_roster;
+    TeamManager m_teamManager;
+    BattleEngine m_battleEngine;
+    Menu m_menu;
+
+    const std::string m_charactersFilePath{"data/characters.txt"};
+    const std::string m_teamsFilePath{"data/teams.txt"};
 };
 
 } // namespace TurnBasedGame

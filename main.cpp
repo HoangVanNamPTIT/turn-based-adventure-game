@@ -10,5 +10,6 @@
 #include "GameApp.h"
 
 int main() {
-    return 0;
+    TurnBasedGame::GameApp app;
+    return app.run();
 }

@@ -13,10 +13,12 @@
 #include <iosfwd>
 #include <string>
 #include <vector>
+#include "BattleState.h"
 
 namespace TurnBasedGame {
 
 class BattleEngine;
+enum class BattleState;
 class Character;
 class CharacterRoster;
 class Team;
@@ -30,7 +32,7 @@ public:
     int showMainMenu();
     int showCharacterMenu();
     int showTeamMenu();
-    int showBattleMenu();
+    int showBattleMenu(BattleState state = BattleState::READY);
 
     bool readInt(const std::string& prompt,
                  int minValue,
@@ -38,6 +40,7 @@ public:
                  int& value);
     bool readPositiveInt(const std::string& prompt, int& value);
     bool readRequiredText(const std::string& prompt, std::string& value);
+    bool readOptionalLine(const std::string& prompt, std::string& value);
     bool readName(const std::string& prompt, std::string& value);
     bool confirm(const std::string& prompt);
     void waitForEnter();
@@ -46,6 +49,7 @@ public:
     void displayCharacters(
         const std::vector<const Character*>& characters) const;
     void displayTeams(const TeamManager& teamManager) const;
+    void displayTeamSummaries(const TeamManager& teamManager) const;
     void displayTeam(const Team& team,
                      const CharacterRoster& roster) const;
     void displayBattle(const BattleEngine& battle,

@@ -1,2 +1,4 @@
 201|Red Team|101,102
-202|Blue Team|102
+202|Blue Team|102,106
+203|Viet Nam|105
+204|Pink Team|
