@@ -34,16 +34,17 @@ public:
     BattleState getState() const;
     const Team* getTeamA() const;
     const Team* getTeamB() const;
+    const Team* getActiveTeam() const;
     const Team* getWinnerTeam() const;
     const Character* getCurrentActor() const;
     int getCurrentActorId() const;
     std::size_t getRoundsPlayed() const;
     std::string getStatusMessage() const;
+    bool teamContainsCharacter(const Team& team, int characterId) const;
 
 private:
     bool startBattleInternal(const Team& teamA, const Team& teamB, CharacterRoster& roster);
     bool validateBattleSetup(const Team& teamA, const Team& teamB, const CharacterRoster& roster) const;
-    bool teamContainsCharacter(const Team& team, int characterId) const;
 
     Character* resolveCharacter(int characterId);
     const Character* resolveCharacter(int characterId) const;

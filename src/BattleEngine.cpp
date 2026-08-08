@@ -32,6 +32,10 @@ const Team* BattleEngine::getWinnerTeam() const {
     return m_winnerTeam;
 }
 
+const Team* BattleEngine::getActiveTeam() const {
+    return currentTeam();
+}
+
 const Character* BattleEngine::getCurrentActor() const {
     if (m_state != BattleState::IN_PROGRESS || m_roster == nullptr) {
         return nullptr;

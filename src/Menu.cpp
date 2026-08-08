@@ -349,13 +349,12 @@ int Menu::showMainMenu() {
                     {"1. Quản lý danh sách nhân vật",
                      "2. Quản lý đội hình",
                      "3. Chiến đấu",
-                     "4. Lưu dữ liệu",
-                     "0. Lưu và thoát"});
+                     "4. Lưu và thoát"});
 
     int choice = 0;
-    return readInt("Nhập lựa chọn của bạn: ", 0, 4, choice)
+    return readInt("Nhập lựa chọn của bạn: ", 1, 4, choice)
         ? choice
-        : 0;
+        : 1;
 }
 
 
@@ -397,17 +396,23 @@ int Menu::showTeamMenu() {
 }
 
 
-int Menu::showBattleMenu() {
+int Menu::showBattleMenu(BattleState state) {
+    std::vector<std::string> options;
+    options.emplace_back("1. Bắt đầu trận đấu mới");
+    if (state == BattleState::IN_PROGRESS) {
+        options.emplace_back("2. Xem trạng thái trận đấu");
+        options.emplace_back("3. Tiếp tục trận đấu");
+        options.emplace_back("4. Xóa trận đấu hiện tại");
+    }
+    options.emplace_back("0. Quay lại menu chính");
+
     printMenuScreen(m_output,
                     "CHIẾN ĐẤU",
-                    {"1. Bắt đầu trận đấu mới",
-                     "2. Hiển thị trạng thái trận đấu",
-                     "3. Thực hiện lượt hành động",
-                     "4. Đặt lại trận đấu",
-                     "0. Quay lại menu chính"});
+                    options);
 
+    int maxChoice = state == BattleState::IN_PROGRESS ? 4 : 1;
     int choice = 0;
-    return readInt("Nhập lựa chọn của bạn: ", 0, 4, choice)
+    return readInt("Nhập lựa chọn của bạn: ", 0, maxChoice, choice)
         ? choice
         : 0;
 }
@@ -484,6 +489,17 @@ bool Menu::readRequiredText(const std::string& prompt,
         value = line;
         return true;
     }
+}
+
+
+bool Menu::readOptionalLine(const std::string& prompt,
+                            std::string& value) {
+    std::string line;
+    if (!readLine(prompt, line)) {
+        return false;
+    }
+    value = trim(line);
+    return true;
 }
 
 
@@ -597,6 +613,51 @@ void Menu::displayTeams(const TeamManager& teamManager) const {
                       {numberToString(team.getId()),
                        team.getName(),
                        numberToString(team.getCharacterIds().size())},
+                      widths);
+    }
+    printTableBorder(m_output, widths);
+}
+
+void Menu::displayTeamSummaries(const TeamManager& teamManager) const {
+    const std::vector<Team>& teams = teamManager.getAllTeams();
+
+    printSectionTitle(m_output,
+                      "DANH SÁCH TEAM HIỆN CÓ",
+                      TEAM_TABLE_WIDTH);
+    printThreeBlankLines(m_output);
+
+    if (teams.empty()) {
+        printCenteredMessage(m_output,
+                             "[THÔNG BÁO] Chưa có đội hình nào.",
+                             TEAM_TABLE_WIDTH);
+        return;
+    }
+
+    const std::vector<std::size_t>& widths = teamColumnWidths();
+    printTableBorder(m_output, widths);
+    printTableRow(m_output,
+                  {"ID đội", "Tên đội", "Danh sách nhân vật"},
+                  widths);
+    printTableBorder(m_output, widths);
+
+    for (const Team& team : teams) {
+        std::ostringstream idsBuilder;
+        const std::vector<int>& ids = team.getCharacterIds();
+        if (ids.empty()) {
+            idsBuilder << "(rỗng)";
+        } else {
+            for (std::size_t index = 0; index < ids.size(); ++index) {
+                if (index > 0) {
+                    idsBuilder << ", ";
+                }
+                idsBuilder << ids[index];
+            }
+        }
+
+        printTableRow(m_output,
+                      {numberToString(team.getId()),
+                       team.getName(),
+                       idsBuilder.str()},
                       widths);
     }
     printTableBorder(m_output, widths);
