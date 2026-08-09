@@ -149,11 +149,11 @@ bool BattleEngine::performAction(int actorId, int targetId) {
 }
 
 bool BattleEngine::startBattleInternal(const Team& teamA, const Team& teamB, CharacterRoster& roster) {
-    resetBattle();
-
     if (!validateBattleSetup(teamA, teamB, roster)) {
         return false;
     }
+
+    resetBattle();
 
     m_roster = &roster;
     m_teamA = &teamA;

@@ -21,13 +21,13 @@ public:
     Team(int id, const std::string& name, const std::vector<int>& characterIds = {});
 
     int getId() const;
-    void setId(int id);
+    bool setId(int id);
 
     const std::string& getName() const;
     bool setName(const std::string& name);
 
     const std::vector<int>& getCharacterIds() const;
-    void setCharacterIds(const std::vector<int>& ids);
+    bool setCharacterIds(const std::vector<int>& ids);
     void addCharacterId(int id);
     bool removeCharacterId(int id);
     bool hasCharacterId(int id) const;

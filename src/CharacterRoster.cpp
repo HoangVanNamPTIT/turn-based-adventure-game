@@ -46,9 +46,13 @@ bool CharacterRoster::isValidCommonData(
     int id,
     const std::string& name,
     int maxHp) {
-    return id > 0
-        && !isBlank(name)
-        && maxHp > 0;
+    if (id <= 0 || isBlank(name) || maxHp <= 0) {
+        return false;
+    }
+    if (name.find('|') != std::string::npos || name.find(',') != std::string::npos) {
+        return false;
+    }
+    return true;
 }
 
 
@@ -120,6 +124,16 @@ bool CharacterRoster::addCharacter(
             character->getName(),
             character->getMaxHp())) {
         return false;
+    }
+
+    if (const Warrior* w = dynamic_cast<const Warrior*>(character.get())) {
+        if (w->getAttackPower() <= 0) {
+            return false;
+        }
+    } else if (const Mage* m = dynamic_cast<const Mage*>(character.get())) {
+        if (m->getMaxMana() <= 0 || m->getSpellDamage() <= 0 || m->getManaCost() <= 0 || m->getFallbackDamage() <= 0) {
+            return false;
+        }
     }
 
     if (findById(character->getId()) != nullptr) {

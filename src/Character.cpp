@@ -9,12 +9,27 @@
 
 namespace TurnBasedGame {
 
+namespace {
+
+bool isValidName(const std::string& name) {
+    const std::size_t first = name.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos) {
+        return false;
+    }
+    if (name.find('|') != std::string::npos || name.find(',') != std::string::npos) {
+        return false;
+    }
+    return true;
+}
+
+} // namespace
+
 Character::Character(int id, const std::string& name, int maxHp, const std::string& type):
-      m_id(id > 0 ? id : 0),
-      m_name(name.empty() ? "" : name),
-      m_maxHp(maxHp > 0 ? maxHp : 1),
-      m_currentHp(maxHp > 0 ? maxHp : 1),
-      m_type(type.empty() ? "UNKNOWN" : type) {
+      m_id(id),
+      m_name(name),
+      m_maxHp(maxHp),
+      m_currentHp(maxHp),
+      m_type(type) {
 }
 
 int Character::getId() const {
@@ -42,7 +57,7 @@ bool Character::isAlive() const {
 }
 
 bool Character::setName(const std::string& name) {
-    if (name.empty()) {
+    if (!isValidName(name)) {
         return false;
     }
     m_name = name;

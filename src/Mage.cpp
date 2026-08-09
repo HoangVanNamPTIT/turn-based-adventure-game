@@ -14,15 +14,15 @@ namespace TurnBasedGame {
 Mage::Mage(int id, const std::string& name, int maxHp, int maxMana,
            int spellDamage, int manaCost, int fallbackDamage) : 
             Character(id, name, maxHp, "MAGE"),
-            m_maxMana(maxMana > 0 ? maxMana : 1),
-            m_currentMana(maxMana > 0 ? maxMana : 1),
-            m_spellDamage(spellDamage > 0 ? spellDamage : 1),
-            m_manaCost(manaCost > 0 ? manaCost : 1),
-            m_fallbackDamage(fallbackDamage > 0 ? fallbackDamage : 1) {
+            m_maxMana(maxMana),
+            m_currentMana(maxMana),
+            m_spellDamage(spellDamage),
+            m_manaCost(manaCost),
+            m_fallbackDamage(fallbackDamage) {
 }
 
 std::unique_ptr<Character> Mage::clone() const {
-    return std::make_unique<Mage>(*this);
+    return std::unique_ptr<Character>(new Mage(*this));
 }
 
 int Mage::getMaxMana() const {
