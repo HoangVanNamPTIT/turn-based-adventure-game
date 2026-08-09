@@ -20,6 +20,7 @@ public:
     Warrior(int id, const std::string& name, int maxHp, int attackPower);
     ~Warrior() override = default;
 
+    std::unique_ptr<Character> clone() const override;
     void performAction(Character& target) override;
 
     int getAttackPower() const;
