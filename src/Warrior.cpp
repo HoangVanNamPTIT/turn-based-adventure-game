@@ -13,7 +13,7 @@ Warrior::Warrior(int id, const std::string& name, int maxHp, int attackPower) :
 }
 
 std::unique_ptr<Character> Warrior::clone() const {
-    return std::make_unique<Warrior>(*this);
+    return std::unique_ptr<Character>(new Warrior(*this));
 }
 
 int Warrior::getAttackPower() const {

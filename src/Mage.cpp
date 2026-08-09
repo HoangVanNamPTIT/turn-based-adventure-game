@@ -22,7 +22,7 @@ Mage::Mage(int id, const std::string& name, int maxHp, int maxMana,
 }
 
 std::unique_ptr<Character> Mage::clone() const {
-    return std::make_unique<Mage>(*this);
+    return std::unique_ptr<Character>(new Mage(*this));
 }
 
 int Mage::getMaxMana() const {
