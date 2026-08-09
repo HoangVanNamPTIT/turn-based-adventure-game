@@ -21,6 +21,7 @@ public:
          int spellDamage, int manaCost, int fallbackDamage);
     ~Mage() override = default;
 
+    std::unique_ptr<Character> clone() const override;
     void performAction(Character& target) override;
 
     int getMaxMana() const;

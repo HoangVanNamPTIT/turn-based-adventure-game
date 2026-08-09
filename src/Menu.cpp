@@ -308,6 +308,7 @@ void printBattleCharacterRow(std::ostream& output,
 void printBattleTeam(std::ostream& output,
                      const std::string& label,
                      const Team& team,
+                     const BattleEngine& battle,
                      const CharacterRoster& roster) {
     std::ostringstream title;
     title << label << ": " << team.getName()
@@ -318,7 +319,10 @@ void printBattleTeam(std::ostream& output,
     printBattleTableHeader(output);
 
     for (int characterId : team.getCharacterIds()) {
-        const Character* character = roster.findById(characterId);
+        const Character* character = battle.getBattleCharacter(&team, characterId);
+        if (character == nullptr) {
+            character = roster.findById(characterId);
+        }
         if (character == nullptr) {
             printTableRow(output,
                           {numberToString(characterId), "Không tồn tại", "-",
@@ -749,9 +753,9 @@ void Menu::displayBattle(const BattleEngine& battle,
     }
 
     m_output << "\n\n";
-    printBattleTeam(m_output, "ĐỘI A", *teamA, roster);
+    printBattleTeam(m_output, "ĐỘI A", *teamA, battle, roster);
     m_output << "\n\n";
-    printBattleTeam(m_output, "ĐỘI B", *teamB, roster);
+    printBattleTeam(m_output, "ĐỘI B", *teamB, battle, roster);
 }
 
 

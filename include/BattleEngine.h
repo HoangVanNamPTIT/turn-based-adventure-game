@@ -8,7 +8,9 @@
 #define TURN_BASED_ADVENTURE_GAME_BATTLE_ENGINE_H
 
 #include <cstddef>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "BattleState.h"
 
@@ -41,14 +43,19 @@ public:
     std::size_t getRoundsPlayed() const;
     std::string getStatusMessage() const;
     bool teamContainsCharacter(const Team& team, int characterId) const;
+    const Character* getBattleCharacter(const Team& team, int characterId) const;
+    const Character* getBattleCharacter(const Team* team, int characterId) const;
 
 private:
     bool startBattleInternal(const Team& teamA, const Team& teamB, CharacterRoster& roster);
     bool validateBattleSetup(const Team& teamA, const Team& teamB, const CharacterRoster& roster) const;
 
-    Character* resolveCharacter(int characterId);
-    const Character* resolveCharacter(int characterId) const;
+    Character* resolveCharacterInTeam(const Team* team, int characterId);
+    const Character* resolveCharacterInTeam(const Team* team, int characterId) const;
     Character* findNextAliveCharacter(const Team& team, std::size_t& cursor);
+
+    const std::vector<std::unique_ptr<Character>>& getTeamCharacterInstances(const Team* team) const;
+    std::vector<std::unique_ptr<Character>>& getTeamCharacterInstances(const Team* team);
 
     const Team* currentTeam() const;
     std::size_t& currentCursor();
@@ -66,6 +73,9 @@ private:
     std::size_t m_nextIndexA{0};
     std::size_t m_nextIndexB{0};
     int m_currentActorId{0};
+
+    std::vector<std::unique_ptr<Character>> m_teamACharacters;
+    std::vector<std::unique_ptr<Character>> m_teamBCharacters;
 };
 
 } // namespace TurnBasedGame

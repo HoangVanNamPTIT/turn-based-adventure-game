@@ -7,6 +7,7 @@
 #include "Mage.h"
 
 #include <algorithm>
+#include <memory>
 
 namespace TurnBasedGame {
 
@@ -18,6 +19,10 @@ Mage::Mage(int id, const std::string& name, int maxHp, int maxMana,
             m_spellDamage(spellDamage > 0 ? spellDamage : 1),
             m_manaCost(manaCost > 0 ? manaCost : 1),
             m_fallbackDamage(fallbackDamage > 0 ? fallbackDamage : 1) {
+}
+
+std::unique_ptr<Character> Mage::clone() const {
+    return std::make_unique<Mage>(*this);
 }
 
 int Mage::getMaxMana() const {

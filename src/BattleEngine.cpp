@@ -1,11 +1,6 @@
-/**
- * @file BattleEngine.cpp
- * @module Battle
- * @brief Implementation of the battle flow controller.
- */
-
 #include "BattleEngine.h"
 
+#include "Character.h"
 #include "CharacterRoster.h"
 #include "Team.h"
 #include "TeamManager.h"
@@ -37,11 +32,11 @@ const Team* BattleEngine::getActiveTeam() const {
 }
 
 const Character* BattleEngine::getCurrentActor() const {
-    if (m_state != BattleState::IN_PROGRESS || m_roster == nullptr) {
+    if (m_state != BattleState::IN_PROGRESS) {
         return nullptr;
     }
 
-    return resolveCharacter(m_currentActorId);
+    return resolveCharacterInTeam(currentTeam(), m_currentActorId);
 }
 
 int BattleEngine::getCurrentActorId() const {
@@ -76,8 +71,17 @@ std::string BattleEngine::getStatusMessage() const {
     return builder.str();
 }
 
+const Character* BattleEngine::getBattleCharacter(const Team& team, int characterId) const {
+    return getBattleCharacter(&team, characterId);
+}
+
+const Character* BattleEngine::getBattleCharacter(const Team* team, int characterId) const {
+    return resolveCharacterInTeam(team, characterId);
+}
+
 void BattleEngine::resetBattle() {
-    // Xóa toàn bộ state tạm của battle, nhưng không đụng vào dữ liệu gốc trong roster.
+    m_teamACharacters.clear();
+    m_teamBCharacters.clear();
     m_roster = nullptr;
     m_teamA = nullptr;
     m_teamB = nullptr;
@@ -109,31 +113,30 @@ bool BattleEngine::performAction(int actorId, int targetId) {
     if (m_state != BattleState::IN_PROGRESS
         || actorId <= 0
         || targetId <= 0
-        || actorId == targetId
-        || m_roster == nullptr
         || m_teamA == nullptr
         || m_teamB == nullptr) {
-        return false;
-    }
-
-    Character* actor = resolveCharacter(actorId);
-    Character* target = resolveCharacter(targetId);
-
-    if (actor == nullptr
-        || target == nullptr
-        || !actor->isAlive()
-        || !target->isAlive()) {
         return false;
     }
 
     const Team* activeTeam = currentTeam();
     const Team* enemyTeam = (activeTeam == m_teamA) ? m_teamB : m_teamA;
 
-    if (activeTeam == nullptr
-        || enemyTeam == nullptr
-        || !teamContainsCharacter(*activeTeam, actorId)
-        || !teamContainsCharacter(*enemyTeam, targetId)
-        || m_currentActorId != actorId) {
+    if (activeTeam == nullptr || enemyTeam == nullptr) {
+        return false;
+    }
+
+    if (m_currentActorId != actorId) {
+        return false;
+    }
+
+    Character* actor = resolveCharacterInTeam(activeTeam, actorId);
+    Character* target = resolveCharacterInTeam(enemyTeam, targetId);
+
+    if (actor == nullptr
+        || target == nullptr
+        || actor == target
+        || !actor->isAlive()
+        || !target->isAlive()) {
         return false;
     }
 
@@ -156,33 +159,28 @@ bool BattleEngine::startBattleInternal(const Team& teamA, const Team& teamB, Cha
     m_teamA = &teamA;
     m_teamB = &teamB;
 
-    const auto& teamAIds = teamA.getCharacterIds();
-    const auto& teamBIds = teamB.getCharacterIds();
-
-    std::vector<int> resetIds;
-    resetIds.reserve(teamAIds.size() + teamBIds.size());
-
-    // Một character có thể nằm ở cả hai team mẫu, nên gom ID duy nhất để chỉ reset một lần.
-    for (int characterId : teamAIds) {
-        if (std::find(resetIds.begin(), resetIds.end(), characterId) == resetIds.end()) {
-            resetIds.push_back(characterId);
-        }
-    }
-
-    for (int characterId : teamBIds) {
-        if (std::find(resetIds.begin(), resetIds.end(), characterId) == resetIds.end()) {
-            resetIds.push_back(characterId);
-        }
-    }
-
-    for (int characterId : resetIds) {
-        Character* character = resolveCharacter(characterId);
-        if (character == nullptr) {
+    m_teamACharacters.clear();
+    for (int characterId : teamA.getCharacterIds()) {
+        const Character* original = roster.findById(characterId);
+        if (original == nullptr) {
             resetBattle();
             return false;
         }
+        std::unique_ptr<Character> cloned = original->clone();
+        cloned->resetBattleState();
+        m_teamACharacters.push_back(std::move(cloned));
+    }
 
-        character->resetBattleState();
+    m_teamBCharacters.clear();
+    for (int characterId : teamB.getCharacterIds()) {
+        const Character* original = roster.findById(characterId);
+        if (original == nullptr) {
+            resetBattle();
+            return false;
+        }
+        std::unique_ptr<Character> cloned = original->clone();
+        cloned->resetBattleState();
+        m_teamBCharacters.push_back(std::move(cloned));
     }
 
     m_state = BattleState::IN_PROGRESS;
@@ -199,7 +197,6 @@ bool BattleEngine::startBattleInternal(const Team& teamA, const Team& teamB, Cha
 }
 
 bool BattleEngine::validateBattleSetup(const Team& teamA, const Team& teamB, const CharacterRoster& roster) const {
-    // Không check m_state ở đây vì startBattleInternal đã reset trước khi gọi hàm này.
     if (&teamA == &teamB
         || teamA.getId() == teamB.getId()
         || roster.empty()
@@ -208,7 +205,6 @@ bool BattleEngine::validateBattleSetup(const Team& teamA, const Team& teamB, con
         return false;
     }
 
-    // Cho phép hai team dùng chung character ID (một nhân vật nằm trong nhiều team mẫu)
     for (int characterId : teamA.getCharacterIds()) {
         if (roster.findById(characterId) == nullptr) {
             return false;
@@ -224,47 +220,72 @@ bool BattleEngine::validateBattleSetup(const Team& teamA, const Team& teamB, con
     return true;
 }
 
-
 bool BattleEngine::teamContainsCharacter(const Team& team, int characterId) const {
     const auto& ids = team.getCharacterIds();
     return std::find(ids.begin(), ids.end(), characterId) != ids.end();
 }
 
-Character* BattleEngine::resolveCharacter(int characterId) {
-    if (m_roster == nullptr) {
-        return nullptr;
+const std::vector<std::unique_ptr<Character>>& BattleEngine::getTeamCharacterInstances(const Team* team) const {
+    static const std::vector<std::unique_ptr<Character>> emptyVec;
+    if (team == nullptr) return emptyVec;
+    if (m_teamA != nullptr && team->getId() == m_teamA->getId()) {
+        return m_teamACharacters;
     }
-
-    return m_roster->findById(characterId);
+    if (m_teamB != nullptr && team->getId() == m_teamB->getId()) {
+        return m_teamBCharacters;
+    }
+    return emptyVec;
 }
 
-const Character* BattleEngine::resolveCharacter(int characterId) const {
-    if (m_roster == nullptr) {
-        return nullptr;
+std::vector<std::unique_ptr<Character>>& BattleEngine::getTeamCharacterInstances(const Team* team) {
+    static std::vector<std::unique_ptr<Character>> emptyVec;
+    if (team == nullptr) return emptyVec;
+    if (m_teamA != nullptr && team->getId() == m_teamA->getId()) {
+        return m_teamACharacters;
     }
+    if (m_teamB != nullptr && team->getId() == m_teamB->getId()) {
+        return m_teamBCharacters;
+    }
+    return emptyVec;
+}
 
-    return m_roster->findById(characterId);
+Character* BattleEngine::resolveCharacterInTeam(const Team* team, int characterId) {
+    auto& instances = getTeamCharacterInstances(team);
+    for (auto& character : instances) {
+        if (character != nullptr && character->getId() == characterId) {
+            return character.get();
+        }
+    }
+    return nullptr;
+}
+
+const Character* BattleEngine::resolveCharacterInTeam(const Team* team, int characterId) const {
+    const auto& instances = getTeamCharacterInstances(team);
+    for (const auto& character : instances) {
+        if (character != nullptr && character->getId() == characterId) {
+            return character.get();
+        }
+    }
+    return nullptr;
 }
 
 Character* BattleEngine::findNextAliveCharacter(const Team& team,
                                                 std::size_t& cursor) {
-    const auto& ids = team.getCharacterIds();
-    if (ids.empty()) {
+    auto& instances = getTeamCharacterInstances(&team);
+    if (instances.empty()) {
         return nullptr;
     }
 
-    // Duyệt tối đa ids.size() phần tử để tránh vòng lặp vô hạn khi tất cả đã chết.
-    const std::size_t startCursor = cursor % ids.size();
+    const std::size_t startCursor = cursor % instances.size();
     std::size_t checked = 0;
 
-    while (checked < ids.size()) {
-        std::size_t index = (startCursor + checked) % ids.size();
+    while (checked < instances.size()) {
+        std::size_t index = (startCursor + checked) % instances.size();
         ++checked;
 
-        Character* character = resolveCharacter(ids[index]);
+        Character* character = instances[index].get();
         if (character != nullptr && character->isAlive()) {
-            // cursor trỏ tới phần tử KẾ TIẾP sau nhân vật vừa chọn, đảm bảo round sau bắt đầu từ đúng vị trí tiếp theo.
-            cursor = (index + 1) % ids.size();
+            cursor = (index + 1) % instances.size();
             return character;
         }
     }
@@ -313,8 +334,6 @@ void BattleEngine::moveToNextTeam() {
     const Team* previousTeam = currentTeam();
     m_activeTeamIndex = (m_activeTeamIndex == 0) ? 1 : 0;
 
-    // prepareCurrentActor nhận previousTeam làm winner nếu team kế tiếp hết người sống.
-    // Không cần gán m_winnerTeam ở đây vì prepareCurrentActor đã xử lý đúng.
     prepareCurrentActor(previousTeam);
 }
 

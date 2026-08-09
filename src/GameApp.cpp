@@ -819,29 +819,6 @@ void GameApp::handleStartBattle() {
             continue;
         }
 
-        std::unordered_set<int> teamAIds(teamA->getCharacterIds().begin(),
-                                         teamA->getCharacterIds().end());
-        bool duplicateFound = false;
-        for (int characterId : teamB->getCharacterIds()) {
-            if (teamAIds.count(characterId) > 0) {
-                const Character* duplicate = m_roster.findById(characterId);
-                std::string duplicateName = duplicate != nullptr
-                    ? duplicate->getName()
-                    : "(không xác định)";
-                std::ostringstream message;
-                message << "Team B tồn tại nhân vật ID " << characterId
-                        << " " << duplicateName
-                        << " bị trùng với Team A. Vui lòng chọn lại ID team B.";
-                m_menu.showError(message.str());
-                duplicateFound = true;
-                break;
-            }
-        }
-
-        if (duplicateFound) {
-            continue;
-        }
-
         break;
     }
 
@@ -904,9 +881,9 @@ void GameApp::handleContinueBattle() {
                 continue;
             }
 
-            const Character* target = m_roster.findById(targetId);
+            const Character* target = m_battleEngine.getBattleCharacter(enemyTeam, targetId);
             if (target == nullptr) {
-                m_menu.showError("Nhân vật mục tiêu không tồn tại trong danh sách nhân vật.");
+                m_menu.showError("Nhân vật mục tiêu không tồn tại trong trận đấu.");
                 continue;
             }
 
@@ -920,7 +897,7 @@ void GameApp::handleContinueBattle() {
 
         const Team* attackingTeam = activeTeam;
         int actorId = currentActor->getId();
-        const Character* targetCharacter = m_roster.findById(targetId);
+        const Character* targetCharacter = m_battleEngine.getBattleCharacter(enemyTeam, targetId);
         if (targetCharacter == nullptr) {
             m_menu.showError("Đã xảy ra lỗi khi tìm mục tiêu.");
             return;

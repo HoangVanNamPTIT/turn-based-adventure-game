@@ -10,6 +10,7 @@
 #ifndef TURN_BASED_ADVENTURE_GAME_CHARACTER_H
 #define TURN_BASED_ADVENTURE_GAME_CHARACTER_H
 
+#include <memory>
 #include <string>
 
 namespace TurnBasedGame {
@@ -19,6 +20,7 @@ public:
     Character(int id, const std::string& name, int maxHp, const std::string& type);
     virtual ~Character() = default;
 
+    virtual std::unique_ptr<Character> clone() const = 0;
     virtual void performAction(Character& target) = 0;
 
     int getId() const;
