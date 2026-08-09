@@ -7,6 +7,7 @@
 #include "DataFileManager.h"
 #include "Utils.h"
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -26,7 +27,12 @@ std::shared_ptr<Character> DataFileManager::parseCharacterLine(const std::string
 
     std::string type = tokens[0];
     if (type == "WARRIOR") {
-        if (tokens.size() < 5) {
+        if (tokens.size() != 5) {
+            return nullptr;
+        }
+        if (!Utils::Utils::isInteger(tokens[1]) || 
+            !Utils::Utils::isInteger(tokens[3]) || 
+            !Utils::Utils::isInteger(tokens[4])) {
             return nullptr;
         }
         int id = Utils::Utils::parseInt(tokens[1], 0);
@@ -39,7 +45,15 @@ std::shared_ptr<Character> DataFileManager::parseCharacterLine(const std::string
         }
         return std::make_shared<Warrior>(id, name, maxHp, attackPower);
     } else if (type == "MAGE") {
-        if (tokens.size() < 8) {
+        if (tokens.size() != 8) {
+            return nullptr;
+        }
+        if (!Utils::Utils::isInteger(tokens[1]) || 
+            !Utils::Utils::isInteger(tokens[3]) || 
+            !Utils::Utils::isInteger(tokens[4]) ||
+            !Utils::Utils::isInteger(tokens[5]) ||
+            !Utils::Utils::isInteger(tokens[6]) ||
+            !Utils::Utils::isInteger(tokens[7])) {
             return nullptr;
         }
         int id = Utils::Utils::parseInt(tokens[1], 0);
@@ -60,9 +74,13 @@ std::shared_ptr<Character> DataFileManager::parseCharacterLine(const std::string
 }
 
 std::string DataFileManager::serializeCharacter(const Character& character) {
+    if (character.getId() <= 0 || character.getName().empty() || character.getMaxHp() <= 0) {
+        return "";
+    }
+
     if (character.getType() == "WARRIOR") {
         const auto* warrior = dynamic_cast<const Warrior*>(&character);
-        if (warrior) {
+        if (warrior && warrior->getAttackPower() > 0) {
             std::ostringstream oss;
             oss << "WARRIOR|" << warrior->getId() << "|"
                 << warrior->getName() << "|"
@@ -72,7 +90,7 @@ std::string DataFileManager::serializeCharacter(const Character& character) {
         }
     } else if (character.getType() == "MAGE") {
         const auto* mage = dynamic_cast<const Mage*>(&character);
-        if (mage) {
+        if (mage && mage->getMaxMana() > 0 && mage->getSpellDamage() > 0 && mage->getManaCost() > 0 && mage->getFallbackDamage() > 0) {
             std::ostringstream oss;
             oss << "MAGE|" << mage->getId() << "|"
                 << mage->getName() << "|"
@@ -94,7 +112,11 @@ bool DataFileManager::parseTeamLine(const std::string& rawLine, Team& outTeam) {
     }
 
     std::vector<std::string> tokens = Utils::Utils::split(line, '|');
-    if (tokens.size() < 2) {
+    if (tokens.size() < 2 || tokens.size() > 3) {
+        return false;
+    }
+
+    if (!Utils::Utils::isInteger(tokens[0])) {
         return false;
     }
 
@@ -105,15 +127,21 @@ bool DataFileManager::parseTeamLine(const std::string& rawLine, Team& outTeam) {
     }
 
     std::vector<int> charIds;
-    if (tokens.size() >= 3 && !tokens[2].empty()) {
+    if (tokens.size() == 3 && !tokens[2].empty()) {
         std::vector<std::string> idTokens = Utils::Utils::split(tokens[2], ',');
-        for (const auto& idStr : idTokens) {
-            if (!idStr.empty() && Utils::Utils::isInteger(idStr)) {
-                int charId = Utils::Utils::parseInt(idStr, 0);
-                if (charId > 0) {
-                    charIds.push_back(charId);
-                }
+        for (const auto& rawIdStr : idTokens) {
+            std::string idStr = Utils::Utils::trim(rawIdStr);
+            if (idStr.empty() || !Utils::Utils::isInteger(idStr)) {
+                return false;
             }
+            int charId = Utils::Utils::parseInt(idStr, 0);
+            if (charId <= 0) {
+                return false;
+            }
+            if (std::find(charIds.begin(), charIds.end(), charId) != charIds.end()) {
+                return false; // Duplicate character ID in team line
+            }
+            charIds.push_back(charId);
         }
     }
 
@@ -122,6 +150,10 @@ bool DataFileManager::parseTeamLine(const std::string& rawLine, Team& outTeam) {
 }
 
 std::string DataFileManager::serializeTeam(const Team& team) {
+    if (team.getId() <= 0 || team.getName().empty()) {
+        return "";
+    }
+
     std::ostringstream oss;
     oss << team.getId() << "|" << team.getName() << "|";
     const auto& ids = team.getCharacterIds();
