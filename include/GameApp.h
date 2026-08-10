@@ -31,6 +31,7 @@ public:
 
 private:
     bool initialize();
+    bool checkBattleLock();
     bool loadCharacters();
     void loadTeams();
     bool saveCharacters() const;
@@ -42,6 +43,7 @@ private:
     void runBattleMenu();
 
     void handleListCharacters();
+    void handleAddCharacterMenu();
     void handleAddWarrior();
     void handleAddMage();
     void handleUpdateCharacter();

@@ -25,7 +25,10 @@ bool isValidTeamName(const std::string& name) {
 } // namespace
 
 Team::Team(int id, const std::string& name, const std::vector<int>& characterIds)
-    : m_id(id), m_name(name), m_characterIds(characterIds) {}
+    : m_id(id),
+      m_name(name),
+      m_characterIds(characterIds) {
+}
 
 int Team::getId() const {
     return m_id;

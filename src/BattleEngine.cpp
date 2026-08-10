@@ -86,6 +86,8 @@ void BattleEngine::resetBattle() {
     m_teamA = nullptr;
     m_teamB = nullptr;
     m_winnerTeam = nullptr;
+    m_teamASnapshot = Team{};
+    m_teamBSnapshot = Team{};
     m_state = BattleState::READY;
     m_roundsPlayed = 0U;
     m_activeTeamIndex = 0;
@@ -156,8 +158,12 @@ bool BattleEngine::startBattleInternal(const Team& teamA, const Team& teamB, Cha
     resetBattle();
 
     m_roster = &roster;
-    m_teamA = &teamA;
-    m_teamB = &teamB;
+    // Snapshot teams by value — BattleEngine is self-contained,
+    // không phụ thuộc lifetime của TeamManager hay Team bên ngoài.
+    m_teamASnapshot = teamA;
+    m_teamBSnapshot = teamB;
+    m_teamA = &m_teamASnapshot;
+    m_teamB = &m_teamBSnapshot;
 
     m_teamACharacters.clear();
     for (int characterId : teamA.getCharacterIds()) {
@@ -214,6 +220,15 @@ bool BattleEngine::validateBattleSetup(const Team& teamA, const Team& teamB, con
     for (int characterId : teamB.getCharacterIds()) {
         if (roster.findById(characterId) == nullptr) {
             return false;
+        }
+    }
+
+    // Hai team không được dùng chung character
+    for (int idA : teamA.getCharacterIds()) {
+        for (int idB : teamB.getCharacterIds()) {
+            if (idA == idB) {
+                return false;
+            }
         }
     }
 
