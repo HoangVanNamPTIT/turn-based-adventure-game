@@ -45,6 +45,24 @@ std::shared_ptr<Character> DataFileManager::parseCharacterLine(const std::string
             return nullptr;
         }
         return std::make_shared<Warrior>(id, name, maxHp, attackPower);
+    } else if (type == "ARCHER") {
+        if (tokens.size() != 5) {
+            return nullptr;
+        }
+        if (!Utils::Utils::isInteger(tokens[1]) || 
+            !Utils::Utils::isInteger(tokens[3]) || 
+            !Utils::Utils::isInteger(tokens[4])) {
+            return nullptr;
+        }
+        int id = Utils::Utils::parseInt(tokens[1], 0);
+        std::string name = tokens[2];
+        int maxHp = Utils::Utils::parseInt(tokens[3], 0);
+        int attackPower = Utils::Utils::parseInt(tokens[4], 0);
+
+        if (id <= 0 || name.empty() || maxHp <= 0 || attackPower <= 0) {
+            return nullptr;
+        }
+        return std::make_shared<Archer>(id, name, maxHp, attackPower);
     } else if (type == "MAGE") {
         if (tokens.size() != 8) {
             return nullptr;
@@ -69,6 +87,30 @@ std::shared_ptr<Character> DataFileManager::parseCharacterLine(const std::string
             return nullptr;
         }
         return std::make_shared<Mage>(id, name, maxHp, maxMana, spellDamage, manaCost, fallbackDamage);
+    } else if (type == "HEALER") {
+        if (tokens.size() != 8) {
+            return nullptr;
+        }
+        if (!Utils::Utils::isInteger(tokens[1]) || 
+            !Utils::Utils::isInteger(tokens[3]) || 
+            !Utils::Utils::isInteger(tokens[4]) ||
+            !Utils::Utils::isInteger(tokens[5]) ||
+            !Utils::Utils::isInteger(tokens[6]) ||
+            !Utils::Utils::isInteger(tokens[7])) {
+            return nullptr;
+        }
+        int id = Utils::Utils::parseInt(tokens[1], 0);
+        std::string name = tokens[2];
+        int maxHp = Utils::Utils::parseInt(tokens[3], 0);
+        int maxMana = Utils::Utils::parseInt(tokens[4], 0);
+        int healAmount = Utils::Utils::parseInt(tokens[5], 0);
+        int manaCost = Utils::Utils::parseInt(tokens[6], 0);
+        int fallbackDamage = Utils::Utils::parseInt(tokens[7], 0);
+
+        if (id <= 0 || name.empty() || maxHp <= 0 || maxMana <= 0 || healAmount <= 0 || healAmount > maxHp || manaCost <= 0 || fallbackDamage <= 0) {
+            return nullptr;
+        }
+        return std::make_shared<Healer>(id, name, maxHp, maxMana, healAmount, manaCost, fallbackDamage);
     }
 
     return nullptr;
@@ -89,6 +131,16 @@ std::string DataFileManager::serializeCharacter(const Character& character) {
                 << warrior->getAttackPower();
             return oss.str();
         }
+    } else if (character.getType() == "ARCHER") {
+        const auto* archer = dynamic_cast<const Archer*>(&character);
+        if (archer && archer->getAttackPower() > 0) {
+            std::ostringstream oss;
+            oss << "ARCHER|" << archer->getId() << "|"
+                << archer->getName() << "|"
+                << archer->getMaxHp() << "|"
+                << archer->getAttackPower();
+            return oss.str();
+        }
     } else if (character.getType() == "MAGE") {
         const auto* mage = dynamic_cast<const Mage*>(&character);
         if (mage && mage->getMaxMana() > 0 && mage->getSpellDamage() > 0 && mage->getManaCost() > 0 && mage->getFallbackDamage() > 0) {
@@ -100,6 +152,19 @@ std::string DataFileManager::serializeCharacter(const Character& character) {
                 << mage->getSpellDamage() << "|"
                 << mage->getManaCost() << "|"
                 << mage->getFallbackDamage();
+            return oss.str();
+        }
+    } else if (character.getType() == "HEALER") {
+        const auto* healer = dynamic_cast<const Healer*>(&character);
+        if (healer && healer->getMaxMana() > 0 && healer->getHealAmount() > 0 && healer->getHealAmount() <= healer->getMaxHp() && healer->getManaCost() > 0 && healer->getFallbackDamage() > 0) {
+            std::ostringstream oss;
+            oss << "HEALER|" << healer->getId() << "|"
+                << healer->getName() << "|"
+                << healer->getMaxHp() << "|"
+                << healer->getMaxMana() << "|"
+                << healer->getHealAmount() << "|"
+                << healer->getManaCost() << "|"
+                << healer->getFallbackDamage();
             return oss.str();
         }
     }

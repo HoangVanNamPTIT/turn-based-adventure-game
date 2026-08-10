@@ -9,6 +9,7 @@
 #include "TeamManager.h"
 #include "Warrior.h"
 #include "Mage.h"
+#include "Healer.h"
 
 #include <iostream>
 #include <cassert>
@@ -204,6 +205,37 @@ void testBattleEngine_FullCombatFlow() {
     ASSERT_EQ(engine.getWinnerTeam()->getId(), 201); // Red Team wins!
 }
 
+void testBattleEngine_HealerAllyTargeting() {
+    CharacterRoster roster;
+    roster.addWarrior(101, "Ares", 100, 30);
+    roster.addHealer(102, "Mercy", 100, 40, 25, 20, 10);
+    roster.addWarrior(103, "EnemyGoblin", 100, 40);
+
+    Team teamA(201, "Team A", {101, 102});
+    Team teamB(202, "Team B", {103});
+
+    BattleEngine engine;
+    ASSERT_TRUE(engine.startBattle(teamA, teamB, roster));
+
+    // Round 1: 101 (Ares) attacks 103 (Enemy)
+    ASSERT_TRUE(engine.performAction(101, 103));
+
+    // Turn switches to Team B: 103 (Enemy) attacks 101 (Ares) -> Ares HP = 60
+    ASSERT_TRUE(engine.performAction(103, 101));
+
+    // Turn switches to Team A second character: 102 (Mercy - Healer).
+    ASSERT_EQ(engine.getCurrentActorId(), 102);
+
+    // Attempt to heal enemy 103 -> MUST FAIL!
+    ASSERT_FALSE(engine.performAction(102, 103));
+
+    // Heal ally 101 (Ares) -> SUCCEEDS!
+    ASSERT_TRUE(engine.performAction(102, 101));
+    const Character* ares = engine.getBattleCharacter(*engine.getTeamA(), 101);
+    ASSERT_TRUE(ares != nullptr);
+    ASSERT_EQ(ares->getCurrentHp(), 85); // 60 + 25 = 85
+}
+
 void testBattleEngine_ResetBattle() {
     CharacterRoster roster;
     roster.addWarrior(101, "Ares", 100, 30);
@@ -272,6 +304,7 @@ int main() {
     RUN_TEST(testBattleEngine_SetupValidation);
     RUN_TEST(testBattleEngine_InvalidStartDoesNotDestroyOngoingBattle);
     RUN_TEST(testBattleEngine_FullCombatFlow);
+    RUN_TEST(testBattleEngine_HealerAllyTargeting);
     RUN_TEST(testBattleEngine_ResetBattle);
     RUN_TEST(testBattleEngine_TeamReallocationSafety);
 

@@ -27,6 +27,7 @@ struct CharacterBattleStats {
     int teamId{0};
     std::string teamName;
     int damageDealt{0};
+    int hpHealed{0};
     int turnsTaken{0};
     int kills{0};
 };

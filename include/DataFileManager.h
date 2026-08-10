@@ -16,7 +16,9 @@
 
 #include "Character.h"
 #include "Warrior.h"
+#include "Archer.h"
 #include "Mage.h"
+#include "Healer.h"
 #include "Team.h"
 #include "TeamRecord.h"
 

@@ -46,6 +46,8 @@ private:
     void handleAddCharacterMenu();
     void handleAddWarrior();
     void handleAddMage();
+    void handleAddHealer();
+    void handleAddArcher();
     void handleUpdateCharacter();
     void handleDeleteCharacter();
     void handleSearchCharacterById();

@@ -2,6 +2,7 @@
 
 #include "Character.h"
 #include "CharacterRoster.h"
+#include "Healer.h"
 #include "Team.h"
 #include "TeamManager.h"
 
@@ -137,13 +138,21 @@ bool BattleEngine::performAction(int actorId, int targetId) {
     }
 
     Character* actor = resolveCharacterInTeam(activeTeam, actorId);
-    Character* target = resolveCharacterInTeam(enemyTeam, targetId);
+    if (actor == nullptr || !actor->isAlive()) {
+        return false;
+    }
 
-    if (actor == nullptr
-        || target == nullptr
-        || actor == target
-        || !actor->isAlive()
-        || !target->isAlive()) {
+    Character* target = nullptr;
+    const Healer* healer = dynamic_cast<const Healer*>(actor);
+    if (healer != nullptr && healer->getCurrentMana() >= healer->getManaCost()) {
+        target = resolveCharacterInTeam(activeTeam, targetId);
+    } else {
+        target = resolveCharacterInTeam(enemyTeam, targetId);
+    }
+
+    if (target == nullptr
+        || !target->isAlive()
+        || (healer == nullptr && actor == target)) {
         return false;
     }
 
@@ -153,12 +162,14 @@ bool BattleEngine::performAction(int actorId, int targetId) {
 
     const int hpAfter = target->getCurrentHp();
     const int damageDealt = (hpBefore > hpAfter) ? (hpBefore - hpAfter) : 0;
+    const int hpHealed = (hpAfter > hpBefore) ? (hpAfter - hpBefore) : 0;
     const bool targetKilled = (hpBefore > 0 && hpAfter <= 0);
 
     for (auto& stats : m_battleStats) {
         if (stats.characterId == actorId) {
             stats.turnsTaken += 1;
             stats.damageDealt += damageDealt;
+            stats.hpHealed += hpHealed;
             if (targetKilled) {
                 stats.kills += 1;
             }
@@ -205,6 +216,7 @@ bool BattleEngine::startBattleInternal(const Team& teamA, const Team& teamB, Cha
         stats.teamId = teamA.getId();
         stats.teamName = teamA.getName();
         stats.damageDealt = 0;
+        stats.hpHealed = 0;
         stats.turnsTaken = 0;
         stats.kills = 0;
         m_battleStats.push_back(stats);
@@ -227,6 +239,7 @@ bool BattleEngine::startBattleInternal(const Team& teamA, const Team& teamB, Cha
         stats.teamId = teamB.getId();
         stats.teamName = teamB.getName();
         stats.damageDealt = 0;
+        stats.hpHealed = 0;
         stats.turnsTaken = 0;
         stats.kills = 0;
         m_battleStats.push_back(stats);

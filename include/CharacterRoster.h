@@ -48,6 +48,19 @@ public:
                  int manaCost,
                  int fallbackDamage);
 
+    bool addHealer(int id,
+                   const std::string& name,
+                   int maxHp,
+                   int maxMana,
+                   int healAmount,
+                   int manaCost,
+                   int fallbackDamage);
+
+    bool addArcher(int id,
+                   const std::string& name,
+                   int maxHp,
+                   int attackPower);
+
     bool updateWarrior(int id,
                        const std::string& name,
                        int maxHp,
@@ -60,6 +73,19 @@ public:
                     int spellDamage,
                     int manaCost,
                     int fallbackDamage);
+
+    bool updateHealer(int id,
+                      const std::string& name,
+                      int maxHp,
+                      int maxMana,
+                      int healAmount,
+                      int manaCost,
+                      int fallbackDamage);
+
+    bool updateArcher(int id,
+                      const std::string& name,
+                      int maxHp,
+                      int attackPower);
 
     bool removeById(int id);
 

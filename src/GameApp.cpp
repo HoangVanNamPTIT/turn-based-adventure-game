@@ -8,6 +8,7 @@
 #include "CharacterRoster.h"
 #include "DataFileManager.h"
 #include "GameApp.h"
+#include "Healer.h"
 #include "Mage.h"
 #include "Menu.h"
 #include "TeamManager.h"
@@ -128,6 +129,19 @@ bool GameApp::loadCharacters() {
                         << mage->getId() << ".";
                 m_menu.showError(message.str());
             }
+        } else if (const Healer* healer = dynamic_cast<const Healer*>(character.get())) {
+            if (!m_roster.addHealer(healer->getId(),
+                                    healer->getName(),
+                                    healer->getMaxHp(),
+                                    healer->getMaxMana(),
+                                    healer->getHealAmount(),
+                                    healer->getManaCost(),
+                                    healer->getFallbackDamage())) {
+                std::ostringstream message;
+                message << "Không thêm được trị thương từ file với ID "
+                        << healer->getId() << ".";
+                m_menu.showError(message.str());
+            }
         } else {
             m_menu.showError("Bỏ qua nhân vật không hợp lệ trong file nhân vật.");
         }
@@ -204,6 +218,12 @@ void GameApp::handleAddCharacterMenu() {
                 break;
             case 2:
                 handleAddMage();
+                break;
+            case 3:
+                handleAddHealer();
+                break;
+            case 4:
+                handleAddArcher();
                 break;
             case 0:
                 return;
@@ -373,6 +393,111 @@ void GameApp::handleAddMage() {
     }
 }
 
+void GameApp::handleAddHealer() {
+    while (true) {
+        int id = 0;
+        std::string name;
+        int maxHp = 0;
+        int maxMana = 0;
+        int healAmount = 0;
+        int manaCost = 0;
+        int fallbackDamage = 0;
+
+        if (!m_menu.readPositiveInt("Nhập ID nhân vật: ", id)) {
+            return;
+        }
+
+        if (m_roster.findById(id) != nullptr) {
+            m_menu.showError("ID đã tồn tại. Nhập lại thông tin từ đầu.");
+            continue;
+        }
+
+        if (!m_menu.readName("Nhập tên nhân vật: ", name)
+            || !m_menu.readPositiveInt("Nhập HP tối đa: ", maxHp)
+            || !m_menu.readPositiveInt("Nhập mana tối đa: ", maxMana)) {
+            return;
+        }
+
+        while (true) {
+            if (!m_menu.readPositiveInt("Nhập lượng máu hồi phục: ", healAmount)) {
+                return;
+            }
+            if (healAmount > maxHp) {
+                m_menu.showError("Lượng máu hồi phục không được vượt quá HP tối đa (" + std::to_string(maxHp) + "). Vui lòng nhập lại.");
+                continue;
+            }
+            break;
+        }
+
+        if (!m_menu.readPositiveInt("Nhập chi phí mana: ", manaCost)
+            || !m_menu.readPositiveInt("Nhập sát thương dự phòng: ", fallbackDamage)) {
+            return;
+        }
+
+        if (m_roster.addHealer(id,
+                               name,
+                               maxHp,
+                               maxMana,
+                               healAmount,
+                               manaCost,
+                               fallbackDamage)) {
+            const Character* added = m_roster.findById(id);
+            if (added != nullptr) {
+                m_menu.displayCharacters({added});
+            }
+            if (!saveCharacters()) {
+                m_menu.showError("Lưu dữ liệu nhân vật vào file thất bại.");
+                return;
+            }
+            m_menu.showSuccess("Thêm nhân vật trị thương thành công.");
+            return;
+        } else {
+            m_menu.showError("Thêm nhân vật trị thương thất bại. Kiểm tra ID hoặc dữ liệu.");
+            return;
+        }
+    }
+}
+
+void GameApp::handleAddArcher() {
+    while (true) {
+        int id = 0;
+        std::string name;
+        int maxHp = 0;
+        int attackPower = 0;
+
+        if (!m_menu.readPositiveInt("Nhập ID nhân vật: ", id)) {
+            return;
+        }
+
+        if (m_roster.findById(id) != nullptr) {
+            m_menu.showError("ID đã tồn tại. Nhập lại thông tin từ đầu.");
+            continue;
+        }
+
+        if (!m_menu.readName("Nhập tên nhân vật: ", name)
+            || !m_menu.readPositiveInt("Nhập HP tối đa: ", maxHp)
+            || !m_menu.readPositiveInt("Nhập lực tấn công: ", attackPower)) {
+            return;
+        }
+
+        if (m_roster.addArcher(id, name, maxHp, attackPower)) {
+            const Character* added = m_roster.findById(id);
+            if (added != nullptr) {
+                m_menu.displayCharacters({added});
+            }
+            if (!saveCharacters()) {
+                m_menu.showError("Lưu dữ liệu nhân vật vào file thất bại.");
+                return;
+            }
+            m_menu.showSuccess("Thêm cung thủ thành công.");
+            return;
+        } else {
+            m_menu.showError("Thêm cung thủ thất bại. Kiểm tra ID hoặc dữ liệu.");
+            return;
+        }
+    }
+}
+
 void GameApp::handleUpdateCharacter() {
     if (checkBattleLock()) {
         return;
@@ -451,6 +576,76 @@ void GameApp::handleUpdateCharacter() {
             m_menu.showSuccess("Cập nhật pháp sư thành công cho ID " + std::to_string(id) + ".");
         } else {
             m_menu.showError("Cập nhật pháp sư thất bại.");
+        }
+        return;
+    }
+
+    if (Healer* healer = dynamic_cast<Healer*>(character)) {
+        int maxMana = 0;
+        int healAmount = 0;
+        int manaCost = 0;
+        int fallbackDamage = 0;
+
+        if (!m_menu.readPositiveInt("Nhập mana tối đa mới: ", maxMana)) {
+            return;
+        }
+
+        while (true) {
+            if (!m_menu.readPositiveInt("Nhập lượng máu hồi phục mới: ", healAmount)) {
+                return;
+            }
+            if (healAmount > maxHp) {
+                m_menu.showError("Lượng máu hồi phục không được vượt quá HP tối đa mới (" + std::to_string(maxHp) + "). Vui lòng nhập lại.");
+                continue;
+            }
+            break;
+        }
+
+        if (!m_menu.readPositiveInt("Nhập chi phí mana mới: ", manaCost)
+            || !m_menu.readPositiveInt("Nhập sát thương dự phòng mới: ", fallbackDamage)) {
+            return;
+        }
+
+        if (m_roster.updateHealer(id,
+                                  name,
+                                  maxHp,
+                                  maxMana,
+                                  healAmount,
+                                  manaCost,
+                                  fallbackDamage)) {
+            const Character* updated = m_roster.findById(id);
+            if (updated != nullptr) {
+                m_menu.displayCharacters({updated});
+            }
+            if (!saveCharacters()) {
+                m_menu.showError("Lưu dữ liệu nhân vật vào file thất bại.");
+                return;
+            }
+            m_menu.showSuccess("Cập nhật nhân vật trị thương thành công cho ID " + std::to_string(id) + ".");
+        } else {
+            m_menu.showError("Cập nhật nhân vật trị thương thất bại.");
+        }
+        return;
+    }
+
+    if (Archer* archer = dynamic_cast<Archer*>(character)) {
+        int attackPower = 0;
+        if (!m_menu.readPositiveInt("Nhập lực tấn công mới: ", attackPower)) {
+            return;
+        }
+
+        if (m_roster.updateArcher(id, name, maxHp, attackPower)) {
+            const Character* updated = m_roster.findById(id);
+            if (updated != nullptr) {
+                m_menu.displayCharacters({updated});
+            }
+            if (!saveCharacters()) {
+                m_menu.showError("Lưu dữ liệu nhân vật vào file thất bại.");
+                return;
+            }
+            m_menu.showSuccess("Cập nhật cung thủ thành công cho ID " + std::to_string(id) + ".");
+        } else {
+            m_menu.showError("Cập nhật cung thủ thất bại.");
         }
         return;
     }
@@ -923,25 +1118,48 @@ void GameApp::handleContinueBattle() {
             + " | ID nhân vật " + std::to_string(currentActor->getId())
             + " | " + currentActor->getName());
 
+        const Healer* healer = dynamic_cast<const Healer*>(currentActor);
+        const bool isHealing = (healer != nullptr && healer->getCurrentMana() >= healer->getManaCost());
+
         int targetId = 0;
         while (true) {
-            if (!m_menu.readPositiveInt("Nhập ID nhân vật đội đối phương cần tấn công: ", targetId)) {
+            std::string promptStr = isHealing
+                ? "Nhập ID đồng đội cần hồi máu: "
+                : "Nhập ID nhân vật đội đối phương cần tấn công: ";
+
+            if (!m_menu.readPositiveInt(promptStr, targetId)) {
                 return;
             }
 
-            if (!m_battleEngine.teamContainsCharacter(*enemyTeam, targetId)) {
-                m_menu.showError("ID nhân vật không thuộc đội đối phương. Vui lòng nhập lại.");
-                continue;
+            if (isHealing) {
+                if (m_battleEngine.teamContainsCharacter(*enemyTeam, targetId)) {
+                    m_menu.showError("Không thể hồi máu cho kẻ địch. Vui lòng nhập lại.");
+                    continue;
+                }
+                if (!m_battleEngine.teamContainsCharacter(*activeTeam, targetId)) {
+                    m_menu.showError("ID nhân vật không thuộc đội đồng đội. Vui lòng nhập lại.");
+                    continue;
+                }
+            } else {
+                if (!m_battleEngine.teamContainsCharacter(*enemyTeam, targetId)) {
+                    m_menu.showError("ID nhân vật không thuộc đội đối phương. Vui lòng nhập lại.");
+                    continue;
+                }
             }
 
-            const Character* target = m_battleEngine.getBattleCharacter(enemyTeam, targetId);
+            const Team* targetTeam = isHealing ? activeTeam : enemyTeam;
+            const Character* target = m_battleEngine.getBattleCharacter(targetTeam, targetId);
             if (target == nullptr) {
                 m_menu.showError("Nhân vật mục tiêu không tồn tại trong trận đấu.");
                 continue;
             }
 
             if (!target->isAlive()) {
-                m_menu.showError("Nhân vật mục tiêu đã chết. Chọn mục tiêu khác.");
+                if (isHealing) {
+                    m_menu.showError("Không thể hồi máu cho nhân vật đã bị hạ. Chọn mục tiêu khác.");
+                } else {
+                    m_menu.showError("Nhân vật mục tiêu đã chết. Chọn mục tiêu khác.");
+                }
                 continue;
             }
 
@@ -950,7 +1168,8 @@ void GameApp::handleContinueBattle() {
 
         const Team* attackingTeam = activeTeam;
         int actorId = currentActor->getId();
-        const Character* targetCharacter = m_battleEngine.getBattleCharacter(enemyTeam, targetId);
+        const Team* targetTeam = isHealing ? activeTeam : enemyTeam;
+        const Character* targetCharacter = m_battleEngine.getBattleCharacter(targetTeam, targetId);
         if (targetCharacter == nullptr) {
             m_menu.showError("Đã xảy ra lỗi khi tìm mục tiêu.");
             return;
@@ -958,8 +1177,16 @@ void GameApp::handleContinueBattle() {
 
         std::string actionType;
         int manaSpent = -1;
+        int manaRecovered = 0;
         if (const Warrior* warrior = dynamic_cast<const Warrior*>(currentActor)) {
             actionType = "Attack Power";
+            manaSpent = -1;
+        } else if (const Archer* archer = dynamic_cast<const Archer*>(currentActor)) {
+            if (archer->isNextAttackCritical()) {
+                actionType = "criticaldmg";
+            } else {
+                actionType = "Attack Power";
+            }
             manaSpent = -1;
         } else if (const Mage* mage = dynamic_cast<const Mage*>(currentActor)) {
             if (mage->getCurrentMana() >= mage->getManaCost()) {
@@ -968,6 +1195,15 @@ void GameApp::handleContinueBattle() {
             } else {
                 actionType = "Fallback Damage";
                 manaSpent = 0;
+            }
+        } else if (healer != nullptr) {
+            if (isHealing) {
+                actionType = "Heal";
+                manaSpent = healer->getManaCost();
+            } else {
+                actionType = "Fallback Damage";
+                manaSpent = 0;
+                manaRecovered = healer->getFallbackDamage() / 2;
             }
         } else {
             actionType = "Attack Power";
@@ -983,29 +1219,41 @@ void GameApp::handleContinueBattle() {
 
         const int targetHpAfter = targetCharacter->getCurrentHp();
         const int damageDealt = (targetHpBefore > targetHpAfter) ? (targetHpBefore - targetHpAfter) : 0;
+        const int healAmountDealt = (targetHpAfter > targetHpBefore) ? (targetHpAfter - targetHpBefore) : 0;
 
         const std::string activeTeamTag = (attackingTeam == m_battleEngine.getTeamA()) ? "Đội A" : "Đội B";
-        const std::string enemyTeamTag = (enemyTeam == m_battleEngine.getTeamA()) ? "Đội A" : "Đội B";
+        const std::string targetTeamTag = (targetTeam == m_battleEngine.getTeamA()) ? "Đội A" : "Đội B";
         const std::size_t turnNumber = m_battleEngine.getRoundsPlayed();
 
         std::ostringstream logLine1;
         logLine1 << "[LƯỢT " << turnNumber << "] "
                  << activeTeamTag << " (" << attackingTeam->getName() << " - ID " << attackingTeam->getId() << ") "
-                 << "ID " << currentActor->getId() << " " << currentActor->getName()
-                 << " TẤN CÔNG --> "
-                 << enemyTeamTag << " (" << enemyTeam->getName() << " - ID " << enemyTeam->getId() << ") "
+                 << "ID " << currentActor->getId() << " " << currentActor->getName();
+        if (isHealing) {
+            logLine1 << " HEAL --> ";
+        } else {
+            logLine1 << " TẤN CÔNG --> ";
+        }
+        logLine1 << targetTeamTag << " (" << targetTeam->getName() << " - ID " << targetTeam->getId() << ") "
                  << "ID " << targetCharacter->getId() << " " << targetCharacter->getName();
 
         std::ostringstream logLine2;
-        logLine2 << "Loại hành động: " << actionType
-                 << " | Sát thương gây ra: " << damageDealt;
+        logLine2 << "Loại hành động: " << actionType;
+        if (isHealing) {
+            logLine2 << " | Máu phục hồi: " << healAmountDealt;
+        } else {
+            logLine2 << " | Sát thương gây ra: " << damageDealt;
+        }
         if (manaSpent >= 0) {
             logLine2 << " | Mana tiêu tốn: " << manaSpent;
+        }
+        if (manaRecovered > 0) {
+            logLine2 << " | Mana phục hồi: " << manaRecovered;
         }
 
         std::ostringstream logLine3;
         logLine3 << "Trạng thái mục tiêu sau hành động: "
-                 << enemyTeamTag << " ID " << targetCharacter->getId() << " " << targetCharacter->getName()
+                 << targetTeamTag << " ID " << targetCharacter->getId() << " " << targetCharacter->getName()
                  << " | HP: " << targetCharacter->getCurrentHp() << "/" << targetCharacter->getMaxHp()
                  << " (" << (targetCharacter->isAlive() ? "Còn sống" : "Bị hạ") << ")";
 
