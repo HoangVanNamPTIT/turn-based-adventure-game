@@ -6,6 +6,7 @@
 #include "DataFileManager.h"
 #include "Warrior.h"
 #include "Mage.h"
+#include "Healer.h"
 #include "Team.h"
 
 #include <iostream>
@@ -90,6 +91,23 @@ void testParseCharacterLine_MageSuccess() {
     ASSERT_EQ(mage->getSpellDamage(), 40);
     ASSERT_EQ(mage->getManaCost(), 10);
     ASSERT_EQ(mage->getFallbackDamage(), 15);
+}
+
+void testParseCharacterLine_HealerSuccess() {
+    std::string line = "HEALER|103|Mercy|100|40|25|15|10";
+    auto charPtr = DataFileManager::parseCharacterLine(line);
+    ASSERT_TRUE(charPtr != nullptr);
+    ASSERT_EQ(charPtr->getType(), "HEALER");
+    ASSERT_EQ(charPtr->getId(), 103);
+    ASSERT_EQ(charPtr->getName(), "Mercy");
+    ASSERT_EQ(charPtr->getMaxHp(), 100);
+
+    auto healer = std::dynamic_pointer_cast<Healer>(charPtr);
+    ASSERT_TRUE(healer != nullptr);
+    ASSERT_EQ(healer->getMaxMana(), 40);
+    ASSERT_EQ(healer->getHealAmount(), 25);
+    ASSERT_EQ(healer->getManaCost(), 15);
+    ASSERT_EQ(healer->getFallbackDamage(), 10);
 }
 
 void testParseCharacterLine_CommentsAndEmpty() {
@@ -344,6 +362,7 @@ int main() {
 
     RUN_TEST(testParseCharacterLine_WarriorSuccess);
     RUN_TEST(testParseCharacterLine_MageSuccess);
+    RUN_TEST(testParseCharacterLine_HealerSuccess);
     RUN_TEST(testParseCharacterLine_CommentsAndEmpty);
     RUN_TEST(testParseCharacterLine_InvalidType);
     RUN_TEST(testParseCharacterLine_MissingOrExtraTokens);

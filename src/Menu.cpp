@@ -6,10 +6,12 @@
 
 #include "Menu.h"
 
+#include "Archer.h"
 #include "BattleEngine.h"
 #include "BattleState.h"
 #include "Character.h"
 #include "CharacterRoster.h"
+#include "Healer.h"
 #include "Mage.h"
 #include "Team.h"
 #include "TeamManager.h"
@@ -26,13 +28,13 @@ namespace TurnBasedGame {
 namespace {
 
 const std::size_t MENU_WIDTH = 68U;
-const std::size_t CHARACTER_TABLE_WIDTH = 111U;
+const std::size_t CHARACTER_TABLE_WIDTH = 122U;
 const std::size_t TEAM_TABLE_WIDTH = 57U;
 const std::size_t BATTLE_TABLE_WIDTH = 82U;
 
 const std::vector<std::size_t>& characterColumnWidths() {
     static const std::vector<std::size_t> widths = {
-        5U, 11U, 19U, 10U, 11U, 10U, 8U, 8U, 10U
+        5U, 11U, 19U, 10U, 11U, 10U, 8U, 9U, 8U, 10U
     };
     return widths;
 }
@@ -213,8 +215,14 @@ std::string characterTypeToVietnamese(const Character& character) {
     if (dynamic_cast<const Warrior*>(&character) != nullptr) {
         return "Chiến binh";
     }
+    if (dynamic_cast<const Archer*>(&character) != nullptr) {
+        return "Cung thủ";
+    }
     if (dynamic_cast<const Mage*>(&character) != nullptr) {
         return "Pháp sư";
+    }
+    if (dynamic_cast<const Healer*>(&character) != nullptr) {
+        return "Trị thương";
     }
     return character.getType();
 }
@@ -237,7 +245,7 @@ void printCharacterTableHeader(std::ostream& output) {
     printTableBorder(output, widths);
     printTableRow(output,
                   {"ID", "Loại", "Tên nhân vật", "HP", "Sát thương",
-                   "Mana", "Phép", "Tốn MP", "Dự phòng"},
+                   "Mana", "Phép", "Hồi máu", "Tốn MP", "Dự phòng"},
                   widths);
     printTableBorder(output, widths);
 }
@@ -247,6 +255,7 @@ void printCharacterRow(std::ostream& output,
     std::string attackPower = "-";
     std::string mana = "-";
     std::string spellDamage = "-";
+    std::string healAmount = "-";
     std::string manaCost = "-";
     std::string fallbackDamage = "-";
 
@@ -255,12 +264,25 @@ void printCharacterRow(std::ostream& output,
         attackPower = numberToString(warrior->getAttackPower());
     }
 
+    const Archer* archer = dynamic_cast<const Archer*>(&character);
+    if (archer != nullptr) {
+        attackPower = numberToString(archer->getAttackPower());
+    }
+
     const Mage* mage = dynamic_cast<const Mage*>(&character);
     if (mage != nullptr) {
         mana = ratioToString(mage->getCurrentMana(), mage->getMaxMana());
         spellDamage = numberToString(mage->getSpellDamage());
         manaCost = numberToString(mage->getManaCost());
         fallbackDamage = numberToString(mage->getFallbackDamage());
+    }
+
+    const Healer* healer = dynamic_cast<const Healer*>(&character);
+    if (healer != nullptr) {
+        mana = ratioToString(healer->getCurrentMana(), healer->getMaxMana());
+        healAmount = numberToString(healer->getHealAmount());
+        manaCost = numberToString(healer->getManaCost());
+        fallbackDamage = numberToString(healer->getFallbackDamage());
     }
 
     printTableRow(output,
@@ -272,6 +294,7 @@ void printCharacterRow(std::ostream& output,
                    attackPower,
                    mana,
                    spellDamage,
+                   healAmount,
                    manaCost,
                    fallbackDamage},
                   characterColumnWidths());
@@ -289,10 +312,12 @@ void printBattleTableHeader(std::ostream& output) {
 
 void printBattleCharacterRow(std::ostream& output,
                              const Character& character) {
-    const Mage* mage = dynamic_cast<const Mage*>(&character);
-    const std::string mana = mage == nullptr
-        ? "-"
-        : ratioToString(mage->getCurrentMana(), mage->getMaxMana());
+    std::string mana = "-";
+    if (const Mage* mage = dynamic_cast<const Mage*>(&character)) {
+        mana = ratioToString(mage->getCurrentMana(), mage->getMaxMana());
+    } else if (const Healer* healer = dynamic_cast<const Healer*>(&character)) {
+        mana = ratioToString(healer->getCurrentMana(), healer->getMaxMana());
+    }
 
     printTableRow(output,
                   {numberToString(character.getId()),
@@ -386,10 +411,12 @@ int Menu::showAddCharacterMenu() {
                     "THÊM NHÂN VẬT",
                     {"1. Thêm Chiến binh (Warrior)",
                      "2. Thêm Pháp sư (Mage)",
+                     "3. Thêm Trị thương (Healer)",
+                     "4. Thêm Cung thủ (Archer)",
                      "0. Quay lại menu quản lý nhân vật"});
 
     int choice = 0;
-    return readInt("Nhập lựa chọn của bạn: ", 0, 2, choice)
+    return readInt("Nhập lựa chọn của bạn: ", 0, 4, choice)
         ? choice
         : 0;
 }
@@ -790,33 +817,72 @@ void Menu::displayBattleResult(const BattleEngine& battle,
     }
 
     m_output << "\n\n";
+    const auto& statsList = battle.getBattleStats();
+    bool hasHealer = false;
+    for (const auto& stats : statsList) {
+        const Character* c = roster.findById(stats.characterId);
+        if (c != nullptr && dynamic_cast<const Healer*>(c) != nullptr) {
+            hasHealer = true;
+            break;
+        }
+    }
+
+    const std::size_t tableTitleWidth = hasHealer ? 98U : BATTLE_TABLE_WIDTH;
     printSectionTitle(m_output,
                       "BẢNG THỐNG KÊ TRẬN ĐẤU GIỮA 2 TEAM",
-                      BATTLE_TABLE_WIDTH);
+                      tableTitleWidth);
     printThreeBlankLines(m_output);
 
-    static const std::vector<std::size_t> statsWidths = {
-        5U, 20U, 18U, 12U, 10U, 8U
-    };
+    if (hasHealer) {
+        static const std::vector<std::size_t> healerStatsWidths = {
+            5U, 20U, 18U, 12U, 10U, 10U, 8U
+        };
 
-    printTableBorder(m_output, statsWidths);
-    printTableRow(m_output,
-                  {"ID", "Tên nhân vật", "Đội", "Tổng DMG", "Số lượt", "Kills"},
-                  statsWidths);
-    printTableBorder(m_output, statsWidths);
-
-    const auto& statsList = battle.getBattleStats();
-    for (const auto& stats : statsList) {
+        printTableBorder(m_output, healerStatsWidths);
         printTableRow(m_output,
-                      {numberToString(stats.characterId),
-                       stats.characterName,
-                       stats.teamName,
-                       numberToString(stats.damageDealt),
-                       numberToString(stats.turnsTaken),
-                       numberToString(stats.kills)},
+                      {"ID", "Tên nhân vật", "Đội", "Tổng DMG", "Hồi HP", "Số lượt", "Kills"},
+                      healerStatsWidths);
+        printTableBorder(m_output, healerStatsWidths);
+
+        for (const auto& stats : statsList) {
+            const Character* c = roster.findById(stats.characterId);
+            const bool isHealer = (c != nullptr && dynamic_cast<const Healer*>(c) != nullptr);
+            const std::string healStr = isHealer ? numberToString(stats.hpHealed) : "-";
+
+            printTableRow(m_output,
+                          {numberToString(stats.characterId),
+                           stats.characterName,
+                           stats.teamName,
+                           numberToString(stats.damageDealt),
+                           healStr,
+                           numberToString(stats.turnsTaken),
+                           numberToString(stats.kills)},
+                          healerStatsWidths);
+        }
+        printTableBorder(m_output, healerStatsWidths);
+    } else {
+        static const std::vector<std::size_t> statsWidths = {
+            5U, 20U, 18U, 12U, 10U, 8U
+        };
+
+        printTableBorder(m_output, statsWidths);
+        printTableRow(m_output,
+                      {"ID", "Tên nhân vật", "Đội", "Tổng DMG", "Số lượt", "Kills"},
                       statsWidths);
+        printTableBorder(m_output, statsWidths);
+
+        for (const auto& stats : statsList) {
+            printTableRow(m_output,
+                          {numberToString(stats.characterId),
+                           stats.characterName,
+                           stats.teamName,
+                           numberToString(stats.damageDealt),
+                           numberToString(stats.turnsTaken),
+                           numberToString(stats.kills)},
+                          statsWidths);
+        }
+        printTableBorder(m_output, statsWidths);
     }
-    printTableBorder(m_output, statsWidths);
     m_output << "\n";
 }
 

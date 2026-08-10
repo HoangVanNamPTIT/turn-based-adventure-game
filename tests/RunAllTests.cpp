@@ -9,6 +9,7 @@
 #include "CharacterRoster.h"
 #include "DataFileManager.h"
 #include "GameApp.h"
+#include "Healer.h"
 #include "Mage.h"
 #include "Menu.h"
 #include "Team.h"
@@ -230,6 +231,95 @@ void testMage_PerformAction_SpellVsFallback() {
     ASSERT_EQ(mage.getCurrentMana(), 30);
 }
 
+void testHealer_ManaAndHealSetters() {
+    Healer healer(1, "Mercy", 100, 50, 30, 20, 10);
+    ASSERT_EQ(healer.getType(), "HEALER");
+    ASSERT_EQ(healer.getMaxMana(), 50);
+    ASSERT_EQ(healer.getHealAmount(), 30);
+    ASSERT_EQ(healer.getManaCost(), 20);
+    ASSERT_EQ(healer.getFallbackDamage(), 10);
+
+    ASSERT_TRUE(healer.setHealAmount(40));
+    ASSERT_FALSE(healer.setHealAmount(150)); // healAmount > maxHp rejected
+}
+
+void testHealer_PerformAction_HealVsFallbackAndManaRegen() {
+    Healer healer(1, "Mercy", 100, 30, 25, 20, 10);
+    Warrior ally(2, "InjuredAlly", 100, 15);
+    ally.takeDamage(40); // Ally HP = 60
+
+    Warrior enemy(3, "Enemy", 100, 10);
+
+    // Round 1: Has 30 mana >= 20 cost. Performs heal on ally. Spends 20 mana. Ally healed by 25.
+    healer.performAction(ally);
+    ASSERT_EQ(healer.getCurrentMana(), 10);
+    ASSERT_EQ(ally.getCurrentHp(), 85);
+
+    // Round 2: Has 10 mana < 20 cost. Performs fallback attack on enemy. Enemy takes 10 dmg. Healer regens 10/2 = 5 mana.
+    healer.performAction(enemy);
+    ASSERT_EQ(healer.getCurrentMana(), 15);
+    ASSERT_EQ(enemy.getCurrentHp(), 90);
+
+    // Round 3: Has 15 mana < 20 cost. Performs fallback attack again. Enemy HP = 80. Healer regens 5 mana -> 20 mana.
+    healer.performAction(enemy);
+    ASSERT_EQ(healer.getCurrentMana(), 20);
+    ASSERT_EQ(enemy.getCurrentHp(), 80);
+
+    // Round 4: Has 20 mana >= 20 cost. Can heal ally again! Ally HP was 85, healed by 25 -> capped at 100 maxHp.
+    healer.performAction(ally);
+    ASSERT_EQ(healer.getCurrentMana(), 0);
+    ASSERT_EQ(ally.getCurrentHp(), 100);
+
+    healer.resetBattleState();
+    ASSERT_EQ(healer.getCurrentMana(), 30);
+}
+
+void testArcher_SettersAndValidation() {
+    Archer archer(1, "Legolas", 100, 20);
+    ASSERT_EQ(archer.getType(), "ARCHER");
+    ASSERT_EQ(archer.getAttackPower(), 20);
+    ASSERT_EQ(archer.getTurnCount(), 0);
+
+    ASSERT_TRUE(archer.setAttackPower(35));
+    ASSERT_EQ(archer.getAttackPower(), 35);
+    ASSERT_FALSE(archer.setAttackPower(0));
+    ASSERT_FALSE(archer.setAttackPower(-10));
+    ASSERT_EQ(archer.getAttackPower(), 35);
+}
+
+void testArcher_PerformAction_3rdTurnCriticalDamage() {
+    Archer archer(1, "Legolas", 100, 20);
+    Warrior dummy(2, "TargetDummy", 200, 10);
+
+    archer.performAction(dummy);
+    ASSERT_EQ(archer.getTurnCount(), 1);
+    ASSERT_EQ(dummy.getCurrentHp(), 180);
+
+    archer.performAction(dummy);
+    ASSERT_EQ(archer.getTurnCount(), 2);
+    ASSERT_EQ(dummy.getCurrentHp(), 160);
+
+    archer.performAction(dummy);
+    ASSERT_EQ(archer.getTurnCount(), 3);
+    ASSERT_EQ(dummy.getCurrentHp(), 120);
+
+    archer.performAction(dummy);
+    ASSERT_EQ(archer.getTurnCount(), 4);
+    ASSERT_EQ(dummy.getCurrentHp(), 100);
+
+    archer.performAction(dummy);
+    ASSERT_EQ(archer.getTurnCount(), 5);
+    ASSERT_EQ(dummy.getCurrentHp(), 80);
+
+    archer.performAction(dummy);
+    ASSERT_EQ(archer.getTurnCount(), 6);
+    ASSERT_EQ(dummy.getCurrentHp(), 40);
+
+    archer.resetBattleState();
+    ASSERT_EQ(archer.getTurnCount(), 0);
+    ASSERT_EQ(archer.getCurrentHp(), 100);
+}
+
 // ===========================================================================
 // 3. Team Entity Tests
 // ===========================================================================
@@ -395,13 +485,36 @@ void testParseCharacterLine_MageSuccess() {
     ASSERT_EQ(charPtr->getName(), "Luna");
 }
 
+void testParseCharacterLine_HealerSuccess() {
+    auto charPtr = DataFileManager::parseCharacterLine("HEALER|103|Mercy|100|40|25|15|10");
+    ASSERT_TRUE(charPtr != nullptr);
+    ASSERT_EQ(charPtr->getName(), "Mercy");
+    ASSERT_EQ(charPtr->getType(), "HEALER");
+}
+
 void testParseCharacterLine_CommentsAndEmpty() {
     ASSERT_TRUE(DataFileManager::parseCharacterLine("") == nullptr);
     ASSERT_TRUE(DataFileManager::parseCharacterLine("# Comment") == nullptr);
 }
 
+void testParseCharacterLine_ArcherSuccess() {
+    std::shared_ptr<Character> c = DataFileManager::parseCharacterLine("ARCHER|301|Robin|120|35");
+    ASSERT_TRUE(c != nullptr);
+    ASSERT_EQ(c->getType(), "ARCHER");
+    ASSERT_EQ(c->getId(), 301);
+    ASSERT_EQ(c->getName(), "Robin");
+    ASSERT_EQ(c->getMaxHp(), 120);
+
+    auto archer = std::dynamic_pointer_cast<Archer>(c);
+    ASSERT_TRUE(archer != nullptr);
+    ASSERT_EQ(archer->getAttackPower(), 35);
+
+    std::string serialized = DataFileManager::serializeCharacter(*c);
+    ASSERT_EQ(serialized, "ARCHER|301|Robin|120|35");
+}
+
 void testParseCharacterLine_InvalidType() {
-    ASSERT_TRUE(DataFileManager::parseCharacterLine("ARCHER|103|Robin|90|25") == nullptr);
+    ASSERT_TRUE(DataFileManager::parseCharacterLine("PALADIN|103|Robin|90|25") == nullptr);
 }
 
 void testParseCharacterLine_MissingOrExtraTokens() {
@@ -581,6 +694,36 @@ void testBattleEngine_FullCombatFlow() {
     ASSERT_EQ(stats[1].kills, 0);
 }
 
+void testBattleEngine_HealerAllyTargeting() {
+    CharacterRoster roster;
+    roster.addWarrior(101, "Ares", 100, 30);
+    roster.addHealer(102, "Mercy", 100, 40, 25, 20, 10);
+    roster.addWarrior(103, "EnemyGoblin", 100, 40);
+
+    Team teamA(201, "Team A", {101, 102});
+    Team teamB(202, "Team B", {103});
+
+    BattleEngine engine;
+    ASSERT_TRUE(engine.startBattle(teamA, teamB, roster));
+
+    // 101 attacks 103
+    ASSERT_TRUE(engine.performAction(101, 103));
+    // 103 attacks 101 -> Ares HP = 60
+    ASSERT_TRUE(engine.performAction(103, 101));
+
+    // Turn is Mercy (102)
+    ASSERT_EQ(engine.getCurrentActorId(), 102);
+
+    // Cannot heal enemy 103
+    ASSERT_FALSE(engine.performAction(102, 103));
+
+    // Heal ally 101 -> 60 + 25 = 85
+    ASSERT_TRUE(engine.performAction(102, 101));
+    const Character* ares = engine.getBattleCharacter(*engine.getTeamA(), 101);
+    ASSERT_TRUE(ares != nullptr);
+    ASSERT_EQ(ares->getCurrentHp(), 85);
+}
+
 void testBattleEngine_ResetBattle() {
     CharacterRoster roster;
     roster.addWarrior(101, "Ares", 100, 30);
@@ -693,6 +836,10 @@ int main() {
     RUN_SYSTEM_TEST("Warrior", "TC_WARRIOR_02", "Perform action dealing physical damage", testWarrior_PerformAction);
     RUN_SYSTEM_TEST("Mage", "TC_MAGE_01", "Mana and spell stat getters and setters", testMage_ManaAndSpellSetters);
     RUN_SYSTEM_TEST("Mage", "TC_MAGE_02", "Spell damage vs fallback damage based on mana", testMage_PerformAction_SpellVsFallback);
+    RUN_SYSTEM_TEST("Healer", "TC_HEALER_01", "Mana and heal amount setters and validation", testHealer_ManaAndHealSetters);
+    RUN_SYSTEM_TEST("Healer", "TC_HEALER_02", "Perform action healing vs fallback damage and mana regen", testHealer_PerformAction_HealVsFallbackAndManaRegen);
+    RUN_SYSTEM_TEST("Archer", "TC_ARCHER_01", "Attack power setters and turn count validation", testArcher_SettersAndValidation);
+    RUN_SYSTEM_TEST("Archer", "TC_ARCHER_02", "Perform action critical damage on every 3rd turn", testArcher_PerformAction_3rdTurnCriticalDamage);
 
     std::cout << "\n--- [MODULE 3: Team Entity] ---" << std::endl;
     RUN_SYSTEM_TEST("Team", "TC_TEAM_MOD_01", "Team constructors, ID clamping and name setters", testTeam_ConstructorsAndSetters);
@@ -716,6 +863,8 @@ int main() {
     std::cout << "\n--- [MODULE 6: DataFileManager (Persistence)] ---" << std::endl;
     RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_01", "Parse Warrior line", testParseCharacterLine_WarriorSuccess);
     RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_02", "Parse Mage line", testParseCharacterLine_MageSuccess);
+    RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_02B", "Parse Healer line", testParseCharacterLine_HealerSuccess);
+    RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_02C", "Parse Archer line", testParseCharacterLine_ArcherSuccess);
     RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_03", "Parse comment or empty line", testParseCharacterLine_CommentsAndEmpty);
     RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_04", "Parse unknown character type", testParseCharacterLine_InvalidType);
     RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_05", "Parse line with missing or extra tokens", testParseCharacterLine_MissingOrExtraTokens);
@@ -738,6 +887,7 @@ int main() {
     RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_01", "Convert BattleState enum to string", testBattleState_ToString);
     RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_02", "Validate battle setup rules and team status", testBattleEngine_SetupValidation);
     RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_03", "Full combat round flow, turn transitions and victory", testBattleEngine_FullCombatFlow);
+    RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_03B", "Healer ally-only targeting and healing in combat", testBattleEngine_HealerAllyTargeting);
     RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_04", "Reset battle state back to READY", testBattleEngine_ResetBattle);
     RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_05", "Team vector reallocation safety without use-after-free (OOP-TC-08)", testBattleEngine_TeamReallocationSafety);
 

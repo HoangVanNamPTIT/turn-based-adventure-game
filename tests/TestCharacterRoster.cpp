@@ -6,6 +6,7 @@
 #include "CharacterRoster.h"
 #include "Warrior.h"
 #include "Mage.h"
+#include "Healer.h"
 
 #include <iostream>
 #include <cassert>
@@ -82,6 +83,33 @@ void testRoster_AddWarriorAndMage() {
     ASSERT_TRUE(roster.findById(999) == nullptr);
     ASSERT_TRUE(roster.findById(0) == nullptr);
     ASSERT_TRUE(roster.findById(-10) == nullptr);
+}
+
+void testRoster_AddAndUpdateHealer() {
+    CharacterRoster roster;
+
+    // Add Healer valid (healAmount 25 <= maxHp 100)
+    ASSERT_TRUE(roster.addHealer(103, "Mercy", 100, 40, 25, 15, 10));
+    ASSERT_EQ(roster.size(), static_cast<size_t>(1));
+
+    const Character* healerChar = roster.findById(103);
+    ASSERT_TRUE(healerChar != nullptr);
+    ASSERT_EQ(healerChar->getName(), "Mercy");
+    ASSERT_EQ(healerChar->getType(), "HEALER");
+
+    // Add Healer with healAmount > maxHp rejected!
+    ASSERT_FALSE(roster.addHealer(104, "OverHealer", 50, 40, 100, 15, 10));
+
+    // Update Healer success
+    ASSERT_TRUE(roster.updateHealer(103, "Mercy Archhealer", 120, 50, 35, 18, 12));
+    const Character* updated = roster.findById(103);
+    ASSERT_TRUE(updated != nullptr);
+    ASSERT_EQ(updated->getName(), "Mercy Archhealer");
+    ASSERT_EQ(updated->getMaxHp(), 120);
+
+    // Update Healer with healAmount > maxHp rejected
+    ASSERT_FALSE(roster.updateHealer(103, "Mercy Bad", 120, 50, 200, 18, 12));
+    ASSERT_EQ(roster.findById(103)->getName(), "Mercy Archhealer");
 }
 
 void testRoster_AddDuplicatesAndInvalid() {
@@ -207,6 +235,7 @@ int main() {
     std::cout << "==================================================" << std::endl;
 
     RUN_TEST(testRoster_AddWarriorAndMage);
+    RUN_TEST(testRoster_AddAndUpdateHealer);
     RUN_TEST(testRoster_AddDuplicatesAndInvalid);
     RUN_TEST(testRoster_UpdateWarriorAndMage);
     RUN_TEST(testRoster_RemoveById);

@@ -4,7 +4,9 @@
  * @brief Skeleton implementation for CharacterRoster. Business logic is intentionally omitted.
  */
 
+#include "Archer.h"
 #include "CharacterRoster.h"
+#include "Healer.h"
 #include "Mage.h"
 #include "Warrior.h"
 
@@ -130,8 +132,16 @@ bool CharacterRoster::addCharacter(
         if (w->getAttackPower() <= 0) {
             return false;
         }
+    } else if (const Archer* a = dynamic_cast<const Archer*>(character.get())) {
+        if (a->getAttackPower() <= 0) {
+            return false;
+        }
     } else if (const Mage* m = dynamic_cast<const Mage*>(character.get())) {
         if (m->getMaxMana() <= 0 || m->getSpellDamage() <= 0 || m->getManaCost() <= 0 || m->getFallbackDamage() <= 0) {
+            return false;
+        }
+    } else if (const Healer* h = dynamic_cast<const Healer*>(character.get())) {
+        if (h->getMaxMana() <= 0 || h->getHealAmount() <= 0 || h->getHealAmount() > h->getMaxHp() || h->getManaCost() <= 0 || h->getFallbackDamage() <= 0) {
             return false;
         }
     }
@@ -192,6 +202,54 @@ bool CharacterRoster::addMage(
 }
 
 
+bool CharacterRoster::addHealer(
+    int id,
+    const std::string& name,
+    int maxHp,
+    int maxMana,
+    int healAmount,
+    int manaCost,
+    int fallbackDamage) {
+    if (!isValidCommonData(id, name, maxHp)
+        || maxMana <= 0
+        || healAmount <= 0
+        || healAmount > maxHp
+        || manaCost <= 0
+        || fallbackDamage <= 0) {
+        return false;
+    }
+
+    std::unique_ptr<Character> healer(
+        new Healer(
+            id,
+            name,
+            maxHp,
+            maxMana,
+            healAmount,
+            manaCost,
+            fallbackDamage));
+
+    return addCharacter(std::move(healer));
+}
+
+
+bool CharacterRoster::addArcher(
+    int id,
+    const std::string& name,
+    int maxHp,
+    int attackPower) {
+    if (!isValidCommonData(id, name, maxHp)
+        || attackPower <= 0) {
+        return false;
+    }
+
+    std::unique_ptr<Character> archer(
+        new Archer(id, name, maxHp, attackPower));
+
+    return addCharacter(std::move(archer));
+}
+
+
 bool CharacterRoster::updateWarrior(
     int id,
     const std::string& name,
@@ -246,6 +304,66 @@ bool CharacterRoster::updateMage(
     mage->setSpellDamage(spellDamage);
     mage->setManaCost(manaCost);
     mage->setFallbackDamage(fallbackDamage);
+
+    return true;
+}
+
+
+bool CharacterRoster::updateHealer(
+    int id,
+    const std::string& name,
+    int maxHp,
+    int maxMana,
+    int healAmount,
+    int manaCost,
+    int fallbackDamage) {
+    if (!isValidCommonData(id, name, maxHp)
+        || maxMana <= 0
+        || healAmount <= 0
+        || healAmount > maxHp
+        || manaCost <= 0
+        || fallbackDamage <= 0) {
+        return false;
+    }
+
+    Character* character = findById(id);
+    Healer* healer = dynamic_cast<Healer*>(character);
+
+    if (healer == nullptr) {
+        return false;
+    }
+
+    healer->setName(name);
+    healer->setMaxHp(maxHp);
+    healer->setMaxMana(maxMana);
+    healer->setHealAmount(healAmount);
+    healer->setManaCost(manaCost);
+    healer->setFallbackDamage(fallbackDamage);
+
+    return true;
+}
+
+
+bool CharacterRoster::updateArcher(
+    int id,
+    const std::string& name,
+    int maxHp,
+    int attackPower) {
+    if (!isValidCommonData(id, name, maxHp)
+        || attackPower <= 0) {
+        return false;
+    }
+
+    Character* character = findById(id);
+    Archer* archer = dynamic_cast<Archer*>(character);
+
+    if (archer == nullptr) {
+        return false;
+    }
+
+    archer->setName(name);
+    archer->setMaxHp(maxHp);
+    archer->setAttackPower(attackPower);
 
     return true;
 }

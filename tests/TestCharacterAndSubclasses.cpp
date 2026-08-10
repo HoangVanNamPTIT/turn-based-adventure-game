@@ -6,6 +6,7 @@
 #include "Character.h"
 #include "Warrior.h"
 #include "Mage.h"
+#include "Healer.h"
 
 #include <iostream>
 #include <cassert>
@@ -227,6 +228,75 @@ void testMage_PerformAction_SpellVsFallback() {
     ASSERT_EQ(mage.getCurrentMana(), 30);
 }
 
+// ---------------------------------------------------------------------------
+// 4. Healer Subclass Tests
+// ---------------------------------------------------------------------------
+
+void testHealer_ManaAndHealSetters() {
+    Healer healer(1, "Mercy", 100, 50, 30, 20, 10);
+    ASSERT_EQ(healer.getType(), "HEALER");
+    ASSERT_EQ(healer.getMaxMana(), 50);
+    ASSERT_EQ(healer.getCurrentMana(), 50);
+    ASSERT_EQ(healer.getHealAmount(), 30);
+    ASSERT_EQ(healer.getManaCost(), 20);
+    ASSERT_EQ(healer.getFallbackDamage(), 10);
+
+    // Setters valid
+    ASSERT_TRUE(healer.setMaxMana(60));
+    ASSERT_EQ(healer.getMaxMana(), 60);
+    ASSERT_TRUE(healer.setCurrentMana(30));
+    ASSERT_EQ(healer.getCurrentMana(), 30);
+
+    ASSERT_TRUE(healer.setHealAmount(40));
+    ASSERT_EQ(healer.getHealAmount(), 40);
+    ASSERT_TRUE(healer.setManaCost(25));
+    ASSERT_EQ(healer.getManaCost(), 25);
+    ASSERT_TRUE(healer.setFallbackDamage(12));
+    ASSERT_EQ(healer.getFallbackDamage(), 12);
+
+    // Invalid setters
+    ASSERT_FALSE(healer.setMaxMana(0));
+    ASSERT_FALSE(healer.setCurrentMana(-5));
+    ASSERT_FALSE(healer.setHealAmount(0));
+    ASSERT_FALSE(healer.setHealAmount(150)); // healAmount > maxHp rejected!
+    ASSERT_FALSE(healer.setManaCost(0));
+    ASSERT_FALSE(healer.setFallbackDamage(0));
+}
+
+void testHealer_PerformAction_HealVsFallbackAndManaRegen() {
+    Healer healer(1, "Mercy", 100, 30, 25, 20, 10);
+    Warrior ally(2, "InjuredAlly", 100, 15);
+    ally.takeDamage(40); // Ally HP = 60
+
+    Warrior enemy(3, "Enemy", 100, 10);
+
+    // Round 1: Has 30 mana >= 20 cost. Performs heal on ally. Spends 20 mana. Ally healed by 25.
+    healer.performAction(ally);
+    ASSERT_EQ(healer.getCurrentMana(), 10);
+    ASSERT_EQ(ally.getCurrentHp(), 85);
+
+    // Round 2: Has 10 mana < 20 cost. Performs fallback attack on enemy. Enemy takes 10 dmg. Healer regens 10/2 = 5 mana.
+    healer.performAction(enemy);
+    ASSERT_EQ(healer.getCurrentMana(), 15);
+    ASSERT_EQ(enemy.getCurrentHp(), 90);
+
+    // Round 3: Has 15 mana < 20 cost. Performs fallback attack again. Enemy HP = 80. Healer regens 5 mana -> 20 mana.
+    healer.performAction(enemy);
+    ASSERT_EQ(healer.getCurrentMana(), 20);
+    ASSERT_EQ(enemy.getCurrentHp(), 80);
+
+    // Round 4: Has 20 mana >= 20 cost. Can heal ally again! Ally HP was 85, healed by 25 -> capped at 100 maxHp.
+    healer.performAction(ally);
+    ASSERT_EQ(healer.getCurrentMana(), 0);
+    ASSERT_EQ(ally.getCurrentHp(), 100);
+
+    // Reset battle state restores HP and Mana
+    healer.takeDamage(50);
+    healer.resetBattleState();
+    ASSERT_EQ(healer.getCurrentHp(), 100);
+    ASSERT_EQ(healer.getCurrentMana(), 30);
+}
+
 int main() {
     std::cout << "==================================================" << std::endl;
     std::cout << "    Character & Subclasses Unit Test Runner       " << std::endl;
@@ -240,6 +310,8 @@ int main() {
     RUN_TEST(testWarrior_PerformAction);
     RUN_TEST(testMage_ManaAndSpellSetters);
     RUN_TEST(testMage_PerformAction_SpellVsFallback);
+    RUN_TEST(testHealer_ManaAndHealSetters);
+    RUN_TEST(testHealer_PerformAction_HealVsFallbackAndManaRegen);
 
     std::cout << "==================================================" << std::endl;
     std::cout << " Summary: " << g_testsPassed << " passed, " << g_testsFailed << " failed." << std::endl;
