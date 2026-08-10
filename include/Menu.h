@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include "BattleState.h"
+#include "TeamRecord.h"
 
 namespace TurnBasedGame {
 
@@ -57,11 +58,13 @@ public:
                        const CharacterRoster& roster) const;
     void displayBattleResult(const BattleEngine& battle,
                             const CharacterRoster& roster) const;
-    void waitForZeroToReturn();
+    void displayTeamStatistics(const std::vector<TeamRecord>& stats) const;
+    void waitForZeroToReturn(const std::string& prompt = "Nhấn 0 để quay lại menu: ");
 
     void showSuccess(const std::string& message) const;
     void showError(const std::string& message) const;
     void showInfo(const std::string& message) const;
+    void showBattleLog(const std::string& message) const;
     void showTeamInfo(const Team& team) const;
     void showGoodbye() const;
 

@@ -63,6 +63,9 @@ int GameApp::run() {
                 runBattleMenu();
                 break;
             case 4:
+                handleShowTeamStatistics();
+                break;
+            case 5:
                 if (saveData()) {
                     m_menu.showGoodbye();
                     return 0;
@@ -953,67 +956,73 @@ void GameApp::handleContinueBattle() {
             return;
         }
 
-        std::string actionName;
-        int damageDealt = 0;
-        int manaSpent = 0;
+        std::string actionType;
+        int manaSpent = -1;
         if (const Warrior* warrior = dynamic_cast<const Warrior*>(currentActor)) {
-            actionName = "Attack";
-            damageDealt = warrior->getAttackPower();
+            actionType = "Attack Power";
             manaSpent = -1;
         } else if (const Mage* mage = dynamic_cast<const Mage*>(currentActor)) {
             if (mage->getCurrentMana() >= mage->getManaCost()) {
-                actionName = "Spell Damage";
-                damageDealt = mage->getSpellDamage();
+                actionType = "Spell Damage";
                 manaSpent = mage->getManaCost();
             } else {
-                actionName = "Fallback Damage";
-                damageDealt = mage->getFallbackDamage();
+                actionType = "Fallback Damage";
                 manaSpent = 0;
             }
         } else {
-            actionName = "Attack";
-            damageDealt = 0;
+            actionType = "Attack Power";
             manaSpent = -1;
         }
+
+        const int targetHpBefore = targetCharacter->getCurrentHp();
 
         if (!m_battleEngine.performAction(actorId, targetId)) {
             m_menu.showError("Hành động không thành công. Vui lòng kiểm tra lại lượt và mục tiêu.");
             return;
         }
 
+        const int targetHpAfter = targetCharacter->getCurrentHp();
+        const int damageDealt = (targetHpBefore > targetHpAfter) ? (targetHpBefore - targetHpAfter) : 0;
+
+        const std::string activeTeamTag = (attackingTeam == m_battleEngine.getTeamA()) ? "Đội A" : "Đội B";
+        const std::string enemyTeamTag = (enemyTeam == m_battleEngine.getTeamA()) ? "Đội A" : "Đội B";
+        const std::size_t turnNumber = m_battleEngine.getRoundsPlayed();
+
         std::ostringstream logLine1;
-        logLine1 << " ID Team " << attackingTeam->getId()
-                 << " | ID nhân vật " << currentActor->getId()
-                 << " | " << currentActor->getName()
-                 << " " << actionName
-                 << " --> ID Team " << enemyTeam->getId()
-                 << " | ID nhân vật " << targetCharacter->getId()
-                 << " | " << targetCharacter->getName();
+        logLine1 << "[LƯỢT " << turnNumber << "] "
+                 << activeTeamTag << " (" << attackingTeam->getName() << " - ID " << attackingTeam->getId() << ") "
+                 << "ID " << currentActor->getId() << " " << currentActor->getName()
+                 << " TẤN CÔNG --> "
+                 << enemyTeamTag << " (" << enemyTeam->getName() << " - ID " << enemyTeam->getId() << ") "
+                 << "ID " << targetCharacter->getId() << " " << targetCharacter->getName();
 
         std::ostringstream logLine2;
-        logLine2 << "ID Team " << attackingTeam->getId()
-                 << " | ID nhân vật " << currentActor->getId()
-                 << " | " << currentActor->getName()
-                 << " | deal dmg = " << damageDealt;
-        if (manaSpent < 0) {
-            logLine2 << " | mana = -";
-        } else {
-            logLine2 << " | mana spent = " << manaSpent;
+        logLine2 << "Loại hành động: " << actionType
+                 << " | Sát thương gây ra: " << damageDealt;
+        if (manaSpent >= 0) {
+            logLine2 << " | Mana tiêu tốn: " << manaSpent;
         }
 
         std::ostringstream logLine3;
-        logLine3 << "ID Team " << enemyTeam->getId()
-                 << " | ID nhân vật " << targetCharacter->getId()
-                 << " | " << targetCharacter->getName()
-                 << " | HP : - " << damageDealt;
+        logLine3 << "Trạng thái mục tiêu sau hành động: "
+                 << enemyTeamTag << " ID " << targetCharacter->getId() << " " << targetCharacter->getName()
+                 << " | HP: " << targetCharacter->getCurrentHp() << "/" << targetCharacter->getMaxHp()
+                 << " (" << (targetCharacter->isAlive() ? "Còn sống" : "Bị hạ") << ")";
 
-        m_menu.showInfo(logLine1.str());
-        m_menu.showInfo(logLine2.str());
-        m_menu.showInfo(logLine3.str());
+        m_menu.showBattleLog(logLine1.str());
+        m_menu.showBattleLog(logLine2.str());
+        m_menu.showBattleLog(logLine3.str());
 
         if (m_battleEngine.getState() != BattleState::IN_PROGRESS) {
+            const Team* winner = m_battleEngine.getWinnerTeam();
+            if (winner != nullptr) {
+                const Team* loser = (winner == m_battleEngine.getTeamA()) ? m_battleEngine.getTeamB() : m_battleEngine.getTeamA();
+                if (loser != nullptr) {
+                    DataFileManager::recordBattleResult(m_teamStatsFilePath, *winner, *loser);
+                }
+            }
             m_menu.displayBattleResult(m_battleEngine, m_roster);
-            m_menu.waitForZeroToReturn();
+            m_menu.waitForZeroToReturn("Nhấn 0 để quay về menu trận đấu: ");
             return;
         }
     }
@@ -1037,6 +1046,21 @@ void GameApp::handleResetBattle() {
 
     m_battleEngine.resetBattle();
     m_menu.showSuccess("Trận đấu hiện tại đã được xóa.");
+}
+
+void GameApp::handleShowTeamStatistics() {
+    std::vector<TeamRecord> stats;
+    DataFileManager::loadTeamStats(m_teamStatsFilePath, stats);
+
+    std::sort(stats.begin(), stats.end(), [](const TeamRecord& a, const TeamRecord& b) {
+        if (a.wins != b.wins) {
+            return a.wins > b.wins;
+        }
+        return a.losses < b.losses;
+    });
+
+    m_menu.displayTeamStatistics(stats);
+    m_menu.waitForZeroToReturn("Nhấn 0 để quay lại menu chính: ");
 }
 
 

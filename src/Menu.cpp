@@ -353,10 +353,11 @@ int Menu::showMainMenu() {
                     {"1. Quản lý danh sách nhân vật",
                      "2. Quản lý đội hình",
                      "3. Chiến đấu",
-                     "4. Lưu và thoát"});
+                     "4. Thống kê số trận thắng/thua của từng team",
+                     "5. Lưu và thoát"});
 
     int choice = 0;
-    return readInt("Nhập lựa chọn của bạn: ", 1, 4, choice)
+    return readInt("Nhập lựa chọn của bạn: ", 1, 5, choice)
         ? choice
         : 1;
 }
@@ -820,10 +821,58 @@ void Menu::displayBattleResult(const BattleEngine& battle,
 }
 
 
-void Menu::waitForZeroToReturn() {
+void Menu::displayTeamStatistics(const std::vector<TeamRecord>& stats) const {
+    printSectionTitle(m_output,
+                      "THỐNG KÊ THÀNH TÍCH ĐỘI HÌNH",
+                      BATTLE_TABLE_WIDTH);
+    printThreeBlankLines(m_output);
+
+    if (stats.empty()) {
+        printCenteredMessage(m_output, "Chưa có dữ liệu thống kê trận đấu", BATTLE_TABLE_WIDTH);
+        m_output << "\n";
+        return;
+    }
+
+    static const std::vector<std::size_t> teamStatsWidths = {
+        6U, 8U, 24U, 24U, 8U, 8U
+    };
+
+    printTableBorder(m_output, teamStatsWidths);
+    printTableRow(m_output,
+                  {"Hạng", "ID Đội", "Tên Đội", "Thành viên (ID)", "Thắng", "Thua"},
+                  teamStatsWidths);
+    printTableBorder(m_output, teamStatsWidths);
+
+    std::size_t rank = 1;
+    for (const auto& rec : stats) {
+        std::ostringstream idsStream;
+        if (rec.characterIds.empty()) {
+            idsStream << "(rỗng)";
+        } else {
+            for (std::size_t i = 0; i < rec.characterIds.size(); ++i) {
+                if (i > 0) idsStream << ", ";
+                idsStream << rec.characterIds[i];
+            }
+        }
+
+        printTableRow(m_output,
+                      {numberToString(rank++),
+                       numberToString(rec.teamId),
+                       rec.teamName,
+                       idsStream.str(),
+                       numberToString(rec.wins),
+                       numberToString(rec.losses)},
+                      teamStatsWidths);
+    }
+    printTableBorder(m_output, teamStatsWidths);
+    m_output << "\n";
+}
+
+
+void Menu::waitForZeroToReturn(const std::string& prompt) {
     int choice = -1;
     while (true) {
-        if (!readInt("Nhấn 0 để quay về menu trận đấu: ", 0, 0, choice)) {
+        if (!readInt(prompt, 0, 0, choice)) {
             return;
         }
         if (choice == 0) {
@@ -845,6 +894,11 @@ void Menu::showError(const std::string& message) const {
 
 void Menu::showInfo(const std::string& message) const {
     m_output << "[THÔNG BÁO] " << message << '\n';
+}
+
+
+void Menu::showBattleLog(const std::string& message) const {
+    m_output << "[BATTLE LOG] " << message << '\n';
 }
 
 

@@ -64,6 +64,8 @@ private:
     void handleContinueBattle();
     void handleResetBattle();
 
+    void handleShowTeamStatistics();
+
     CharacterRoster m_roster;
     TeamManager m_teamManager;
     BattleEngine m_battleEngine;
@@ -71,6 +73,7 @@ private:
 
     const std::string m_charactersFilePath{"data/characters.txt"};
     const std::string m_teamsFilePath{"data/teams.txt"};
+    const std::string m_teamStatsFilePath{"data/team_win_loss_stats.txt"};
 };
 
 } // namespace TurnBasedGame
