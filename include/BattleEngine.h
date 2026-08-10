@@ -21,6 +21,16 @@ class Character;
 class CharacterRoster;
 class TeamManager;
 
+struct CharacterBattleStats {
+    int characterId{0};
+    std::string characterName;
+    int teamId{0};
+    std::string teamName;
+    int damageDealt{0};
+    int turnsTaken{0};
+    int kills{0};
+};
+
 class BattleEngine {
 public:
     BattleEngine() = default;
@@ -45,6 +55,7 @@ public:
     bool teamContainsCharacter(const Team& team, int characterId) const;
     const Character* getBattleCharacter(const Team& team, int characterId) const;
     const Character* getBattleCharacter(const Team* team, int characterId) const;
+    const std::vector<CharacterBattleStats>& getBattleStats() const;
 
 private:
     bool startBattleInternal(const Team& teamA, const Team& teamB, CharacterRoster& roster);
@@ -78,6 +89,7 @@ private:
 
     std::vector<std::unique_ptr<Character>> m_teamACharacters;
     std::vector<std::unique_ptr<Character>> m_teamBCharacters;
+    std::vector<CharacterBattleStats> m_battleStats;
 };
 
 } // namespace TurnBasedGame

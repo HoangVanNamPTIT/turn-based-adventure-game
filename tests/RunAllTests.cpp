@@ -524,6 +524,17 @@ void testBattleEngine_FullCombatFlow() {
     ASSERT_TRUE(engine.performAction(101, 102)); // Luna dies
     ASSERT_EQ(engine.getState(), BattleState::FINISHED);
     ASSERT_EQ(engine.getWinnerTeam()->getId(), 201);
+
+    const auto& stats = engine.getBattleStats();
+    ASSERT_EQ(stats.size(), static_cast<std::size_t>(2));
+    ASSERT_EQ(stats[0].characterId, 101);
+    ASSERT_EQ(stats[0].damageDealt, 80);
+    ASSERT_EQ(stats[0].turnsTaken, 2);
+    ASSERT_EQ(stats[0].kills, 1);
+    ASSERT_EQ(stats[1].characterId, 102);
+    ASSERT_EQ(stats[1].damageDealt, 50);
+    ASSERT_EQ(stats[1].turnsTaken, 1);
+    ASSERT_EQ(stats[1].kills, 0);
 }
 
 void testBattleEngine_ResetBattle() {

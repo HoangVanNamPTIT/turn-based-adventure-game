@@ -79,9 +79,14 @@ const Character* BattleEngine::getBattleCharacter(const Team* team, int characte
     return resolveCharacterInTeam(team, characterId);
 }
 
+const std::vector<CharacterBattleStats>& BattleEngine::getBattleStats() const {
+    return m_battleStats;
+}
+
 void BattleEngine::resetBattle() {
     m_teamACharacters.clear();
     m_teamBCharacters.clear();
+    m_battleStats.clear();
     m_roster = nullptr;
     m_teamA = nullptr;
     m_teamB = nullptr;
@@ -142,7 +147,25 @@ bool BattleEngine::performAction(int actorId, int targetId) {
         return false;
     }
 
+    const int hpBefore = target->getCurrentHp();
+
     actor->performAction(*target);
+
+    const int hpAfter = target->getCurrentHp();
+    const int damageDealt = (hpBefore > hpAfter) ? (hpBefore - hpAfter) : 0;
+    const bool targetKilled = (hpBefore > 0 && hpAfter <= 0);
+
+    for (auto& stats : m_battleStats) {
+        if (stats.characterId == actorId) {
+            stats.turnsTaken += 1;
+            stats.damageDealt += damageDealt;
+            if (targetKilled) {
+                stats.kills += 1;
+            }
+            break;
+        }
+    }
+
     ++m_roundsPlayed;
 
     moveToNextTeam();
@@ -175,6 +198,16 @@ bool BattleEngine::startBattleInternal(const Team& teamA, const Team& teamB, Cha
         std::unique_ptr<Character> cloned = original->clone();
         cloned->resetBattleState();
         m_teamACharacters.push_back(std::move(cloned));
+
+        CharacterBattleStats stats;
+        stats.characterId = characterId;
+        stats.characterName = original->getName();
+        stats.teamId = teamA.getId();
+        stats.teamName = teamA.getName();
+        stats.damageDealt = 0;
+        stats.turnsTaken = 0;
+        stats.kills = 0;
+        m_battleStats.push_back(stats);
     }
 
     m_teamBCharacters.clear();
@@ -187,6 +220,16 @@ bool BattleEngine::startBattleInternal(const Team& teamA, const Team& teamB, Cha
         std::unique_ptr<Character> cloned = original->clone();
         cloned->resetBattleState();
         m_teamBCharacters.push_back(std::move(cloned));
+
+        CharacterBattleStats stats;
+        stats.characterId = characterId;
+        stats.characterName = original->getName();
+        stats.teamId = teamB.getId();
+        stats.teamName = teamB.getName();
+        stats.damageDealt = 0;
+        stats.turnsTaken = 0;
+        stats.kills = 0;
+        m_battleStats.push_back(stats);
     }
 
     m_state = BattleState::IN_PROGRESS;

@@ -772,6 +772,67 @@ void Menu::displayBattle(const BattleEngine& battle,
 }
 
 
+void Menu::displayBattleResult(const BattleEngine& battle,
+                              const CharacterRoster& roster) const {
+    printSectionTitle(m_output,
+                      "TRẬN ĐẤU ĐÃ KẾT THÚC!",
+                      BATTLE_TABLE_WIDTH);
+
+    const Team* winner = battle.getWinnerTeam();
+    if (winner != nullptr) {
+        m_output << "\n";
+        std::ostringstream winnerTitle;
+        winnerTitle << "ĐỘI CHIẾN THẮNG: [" << winner->getId() << "] " << winner->getName();
+        printCenteredMessage(m_output, winnerTitle.str(), BATTLE_TABLE_WIDTH);
+        m_output << "\n";
+        printBattleTeam(m_output, "NHÂN VẬT ĐỘI CHIẾN THẮNG", *winner, battle, roster);
+    }
+
+    m_output << "\n\n";
+    printSectionTitle(m_output,
+                      "BẢNG THỐNG KÊ TRẬN ĐẤU GIỮA 2 TEAM",
+                      BATTLE_TABLE_WIDTH);
+    printThreeBlankLines(m_output);
+
+    static const std::vector<std::size_t> statsWidths = {
+        5U, 20U, 18U, 12U, 10U, 8U
+    };
+
+    printTableBorder(m_output, statsWidths);
+    printTableRow(m_output,
+                  {"ID", "Tên nhân vật", "Đội", "Tổng DMG", "Số lượt", "Kills"},
+                  statsWidths);
+    printTableBorder(m_output, statsWidths);
+
+    const auto& statsList = battle.getBattleStats();
+    for (const auto& stats : statsList) {
+        printTableRow(m_output,
+                      {numberToString(stats.characterId),
+                       stats.characterName,
+                       stats.teamName,
+                       numberToString(stats.damageDealt),
+                       numberToString(stats.turnsTaken),
+                       numberToString(stats.kills)},
+                      statsWidths);
+    }
+    printTableBorder(m_output, statsWidths);
+    m_output << "\n";
+}
+
+
+void Menu::waitForZeroToReturn() {
+    int choice = -1;
+    while (true) {
+        if (!readInt("Nhấn 0 để quay về menu trận đấu: ", 0, 0, choice)) {
+            return;
+        }
+        if (choice == 0) {
+            return;
+        }
+    }
+}
+
+
 void Menu::showSuccess(const std::string& message) const {
     m_output << "[THÀNH CÔNG] " << message << '\n';
 }
