@@ -55,6 +55,9 @@ public:
                      const CharacterRoster& roster) const;
     void displayBattle(const BattleEngine& battle,
                        const CharacterRoster& roster) const;
+    void displayBattleResult(const BattleEngine& battle,
+                            const CharacterRoster& roster) const;
+    void waitForZeroToReturn();
 
     void showSuccess(const std::string& message) const;
     void showError(const std::string& message) const;

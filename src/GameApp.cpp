@@ -1012,7 +1012,8 @@ void GameApp::handleContinueBattle() {
         m_menu.showInfo(logLine3.str());
 
         if (m_battleEngine.getState() != BattleState::IN_PROGRESS) {
-            m_menu.showSuccess("Trận đấu đã kết thúc.");
+            m_menu.displayBattleResult(m_battleEngine, m_roster);
+            m_menu.waitForZeroToReturn();
             return;
         }
     }
