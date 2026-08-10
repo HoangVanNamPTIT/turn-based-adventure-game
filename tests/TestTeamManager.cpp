@@ -75,14 +75,21 @@ void testTeamManager_CreateAndDelete() {
     // Duplicate ID rejected
     ASSERT_FALSE(tm.createTeam(201, "Green Team"));
 
-    // Duplicate Name rejected
+    // Duplicate Name rejected (case-exact and case-insensitive)
     ASSERT_FALSE(tm.createTeam(203, "Red Team"));
+    ASSERT_FALSE(tm.createTeam(203, "red team"));
+    ASSERT_FALSE(tm.createTeam(203, "RED TEAM"));
 
     // Invalid parameters rejected
     ASSERT_FALSE(tm.createTeam(0, "Invalid ID"));
     ASSERT_FALSE(tm.createTeam(-5, "Negative ID"));
     ASSERT_FALSE(tm.createTeam(204, ""));
     ASSERT_FALSE(tm.createTeam(205, "   "));
+
+    // Name containing delimiter characters rejected
+    ASSERT_FALSE(tm.createTeam(206, "Name|WithPipe"));
+    ASSERT_FALSE(tm.createTeam(207, "Name,WithComma"));
+    ASSERT_FALSE(tm.createTeam(208, "Alpha|Beta,Gamma"));
 
     // Delete team
     ASSERT_TRUE(tm.deleteTeam(201));
@@ -105,12 +112,19 @@ void testTeamManager_RenameTeam() {
     // Rename to same name returns true
     ASSERT_TRUE(tm.renameTeam(201, "Crimson Team"));
 
-    // Rename to existing name of another team returns false
+    // Rename to existing name of another team returns false (case-exact and case-insensitive)
     ASSERT_FALSE(tm.renameTeam(201, "Blue Team"));
+    ASSERT_FALSE(tm.renameTeam(201, "blue team"));
+    ASSERT_FALSE(tm.renameTeam(201, "BLUE TEAM"));
 
     // Rename with invalid name returns false
     ASSERT_FALSE(tm.renameTeam(201, ""));
     ASSERT_FALSE(tm.renameTeam(201, "   "));
+
+    // Rename with delimiter characters returns false
+    ASSERT_FALSE(tm.renameTeam(201, "Bad|Name"));
+    ASSERT_FALSE(tm.renameTeam(201, "Bad,Name"));
+    ASSERT_FALSE(tm.renameTeam(201, "Pipe|Comma,Mix"));
 }
 
 // ---------------------------------------------------------------------------

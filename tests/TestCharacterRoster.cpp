@@ -101,6 +101,12 @@ void testRoster_AddDuplicatesAndInvalid() {
     ASSERT_FALSE(roster.addWarrior(105, "Invalid ATK", 100, 0));
     ASSERT_FALSE(roster.addMage(106, "Invalid Mana", 80, 0, 40, 10, 15));
 
+    // FR-01.3B: Name containing delimiter characters rejected
+    ASSERT_FALSE(roster.addWarrior(110, "Name|Pipe", 100, 30));
+    ASSERT_FALSE(roster.addWarrior(111, "Name,Comma", 100, 30));
+    ASSERT_FALSE(roster.addMage(112, "Mage|Pipe", 80, 50, 40, 10, 15));
+    ASSERT_FALSE(roster.addMage(113, "Mage,Comma", 80, 50, 40, 10, 15));
+
     ASSERT_EQ(roster.size(), static_cast<size_t>(1));
 }
 
@@ -130,6 +136,15 @@ void testRoster_UpdateWarriorAndMage() {
 
     // Updating non-existent ID returns false
     ASSERT_FALSE(roster.updateWarrior(999, "Unknown", 100, 30));
+
+    // FR-01.3B: Update with delimiter name rejected
+    ASSERT_FALSE(roster.updateWarrior(101, "Ares|Bad", 100, 30));
+    ASSERT_FALSE(roster.updateWarrior(101, "Ares,Bad", 100, 30));
+    ASSERT_FALSE(roster.updateMage(102, "Luna|Bad", 90, 60, 50, 12, 18));
+    ASSERT_FALSE(roster.updateMage(102, "Luna,Bad", 90, 60, 50, 12, 18));
+    // Verify names unchanged after failed update
+    ASSERT_EQ(roster.findById(101)->getName(), "Ares Supreme");
+    ASSERT_EQ(roster.findById(102)->getName(), "Luna Archmage");
 }
 
 void testRoster_RemoveById() {

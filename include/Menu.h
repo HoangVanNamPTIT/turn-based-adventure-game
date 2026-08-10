@@ -31,6 +31,7 @@ public:
 
     int showMainMenu();
     int showCharacterMenu();
+    int showAddCharacterMenu();
     int showTeamMenu();
     int showBattleMenu(BattleState state = BattleState::READY);
 
@@ -58,6 +59,7 @@ public:
     void showSuccess(const std::string& message) const;
     void showError(const std::string& message) const;
     void showInfo(const std::string& message) const;
+    void showTeamInfo(const Team& team) const;
     void showGoodbye() const;
 
 private:

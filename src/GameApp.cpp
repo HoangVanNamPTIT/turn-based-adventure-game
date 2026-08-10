@@ -41,41 +41,6 @@ std::string toLowerString(const std::string& value) {
     return normalized;
 }
 
-bool isTeamNameUsedIgnoringCase(const TeamManager& manager,
-                                const std::string& name,
-                                int exceptTeamId = -1) {
-    const std::string loweredName = toLowerString(name);
-    for (const Team& team : manager.getAllTeams()) {
-        if (team.getId() == exceptTeamId) {
-            continue;
-        }
-        if (toLowerString(team.getName()) == loweredName) {
-            return true;
-        }
-    }
-    return false;
-}
-
-std::string buildTeamInfoLine(const Team& team) {
-    std::ostringstream info;
-    info << "ID đội " << team.getId()
-         << " | " << team.getName()
-         << " | Danh sách nhân vật: ";
-
-    const std::vector<int>& characterIds = team.getCharacterIds();
-    if (characterIds.empty()) {
-        info << "(rỗng)";
-    } else {
-        for (std::size_t index = 0; index < characterIds.size(); ++index) {
-            if (index > 0) {
-                info << ", ";
-            }
-            info << characterIds[index];
-        }
-    }
-    return info.str();
-}
-
 } // namespace
 
 GameApp::GameApp(std::istream& input, std::ostream& output)
@@ -113,6 +78,14 @@ bool GameApp::initialize() {
     loadCharacters();
     loadTeams();
     return true;
+}
+
+bool GameApp::checkBattleLock() {
+    if (m_battleEngine.getState() == BattleState::IN_PROGRESS) {
+        m_menu.showError("Trận đấu đang diễn ra. Vui lòng kết thúc hoặc reset trận đấu trước khi thực hiện thao tác này.");
+        return true;
+    }
+    return false;
 }
 
 bool GameApp::loadCharacters() {
@@ -168,21 +141,7 @@ void GameApp::loadTeams() {
 }
 
 bool GameApp::saveCharacters() const {
-    const std::vector<const Character*> characters = m_roster.getAllCharacters();
-    std::vector<std::shared_ptr<Character>> wrappers;
-    wrappers.reserve(characters.size());
-
-    for (const Character* character : characters) {
-        if (character != nullptr) {
-            wrappers.emplace_back(
-                const_cast<Character*>(character),
-                [](Character*) {
-                    // Không sở hữu đối tượng; chỉ truyền cho DataFileManager để serialize.
-                });
-        }
-    }
-
-    return DataFileManager::saveCharacters(m_charactersFilePath, wrappers);
+    return DataFileManager::saveCharacters(m_charactersFilePath, m_roster);
 }
 
 bool GameApp::saveTeams() const {
@@ -211,22 +170,37 @@ void GameApp::runCharacterMenu() {
                 handleListCharacters();
                 break;
             case 2:
-                handleAddWarrior();
+                handleAddCharacterMenu();
                 break;
             case 3:
-                handleAddMage();
-                break;
-            case 4:
                 handleUpdateCharacter();
                 break;
-            case 5:
+            case 4:
                 handleDeleteCharacter();
                 break;
-            case 6:
+            case 5:
                 handleSearchCharacterById();
                 break;
-            case 7:
+            case 6:
                 handleSearchCharacterByName();
+                break;
+            case 0:
+                return;
+            default:
+                break;
+        }
+    }
+}
+
+void GameApp::handleAddCharacterMenu() {
+    while (true) {
+        int choice = m_menu.showAddCharacterMenu();
+        switch (choice) {
+            case 1:
+                handleAddWarrior();
+                break;
+            case 2:
+                handleAddMage();
                 break;
             case 0:
                 return;
@@ -331,6 +305,10 @@ void GameApp::handleAddWarrior() {
             if (added != nullptr) {
                 m_menu.displayCharacters({added});
             }
+            if (!saveCharacters()) {
+                m_menu.showError("Lưu dữ liệu nhân vật vào file thất bại.");
+                return;
+            }
             m_menu.showSuccess("Thêm chiến binh thành công.");
             return;
         } else {
@@ -379,6 +357,10 @@ void GameApp::handleAddMage() {
             if (added != nullptr) {
                 m_menu.displayCharacters({added});
             }
+            if (!saveCharacters()) {
+                m_menu.showError("Lưu dữ liệu nhân vật vào file thất bại.");
+                return;
+            }
             m_menu.showSuccess("Thêm pháp sư thành công.");
             return;
         } else {
@@ -389,6 +371,9 @@ void GameApp::handleAddMage() {
 }
 
 void GameApp::handleUpdateCharacter() {
+    if (checkBattleLock()) {
+        return;
+    }
     int id = 0;
     if (!m_menu.readPositiveInt("Nhập ID nhân vật cần cập nhật: ", id)) {
         return;
@@ -421,6 +406,10 @@ void GameApp::handleUpdateCharacter() {
             if (updated != nullptr) {
                 m_menu.displayCharacters({updated});
             }
+            if (!saveCharacters()) {
+                m_menu.showError("Lưu dữ liệu nhân vật vào file thất bại.");
+                return;
+            }
             m_menu.showSuccess("Cập nhật chiến binh thành công cho ID " + std::to_string(id) + ".");
         } else {
             m_menu.showError("Cập nhật chiến binh thất bại.");
@@ -452,6 +441,10 @@ void GameApp::handleUpdateCharacter() {
             if (updated != nullptr) {
                 m_menu.displayCharacters({updated});
             }
+            if (!saveCharacters()) {
+                m_menu.showError("Lưu dữ liệu nhân vật vào file thất bại.");
+                return;
+            }
             m_menu.showSuccess("Cập nhật pháp sư thành công cho ID " + std::to_string(id) + ".");
         } else {
             m_menu.showError("Cập nhật pháp sư thất bại.");
@@ -463,6 +456,9 @@ void GameApp::handleUpdateCharacter() {
 }
 
 void GameApp::handleDeleteCharacter() {
+    if (checkBattleLock()) {
+        return;
+    }
     int id = 0;
     if (!m_menu.readPositiveInt("Nhập ID nhân vật cần xóa: ", id)) {
         return;
@@ -474,6 +470,10 @@ void GameApp::handleDeleteCharacter() {
     }
 
     m_teamManager.removeCharacterFromAllTeams(id);
+    if (!saveData()) {
+        m_menu.showError("Lưu dữ liệu vào file thất bại.");
+        return;
+    }
     m_menu.showSuccess("Nhân vật đã được xóa và loại khỏi các đội hình.");
 }
 
@@ -558,7 +558,7 @@ void GameApp::handleCreateTeam() {
             continue;
         }
 
-        if (isTeamNameUsedIgnoringCase(m_teamManager, teamName)) {
+        if (m_teamManager.teamNameExists(teamName)) {
             m_menu.showError("Tên đội đã được sử dụng. Vui lòng nhập lại tên đội.");
             continue;
         }
@@ -567,10 +567,14 @@ void GameApp::handleCreateTeam() {
     }
 
     if (m_teamManager.createTeam(teamId, teamName)) {
+        if (!saveTeams()) {
+            m_menu.showError("Lưu dữ liệu đội hình vào file thất bại.");
+            return;
+        }
         m_menu.showSuccess("Đội hình đã được tạo thành công.");
         const Team* team = m_teamManager.getTeamById(teamId);
         if (team != nullptr) {
-            m_menu.showInfo(buildTeamInfoLine(*team));
+            m_menu.showTeamInfo(*team);
         }
     } else {
         m_menu.showError("Tạo đội hình thất bại. Kiểm tra ID hoặc tên đội.");
@@ -578,6 +582,9 @@ void GameApp::handleCreateTeam() {
 }
 
 void GameApp::handleRenameTeam() {
+    if (checkBattleLock()) {
+        return;
+    }
     int teamId = 0;
     std::string newName;
 
@@ -593,7 +600,7 @@ void GameApp::handleRenameTeam() {
             continue;
         }
 
-        m_menu.showInfo(buildTeamInfoLine(*team));
+        m_menu.showTeamInfo(*team);
         break;
     }
 
@@ -607,7 +614,7 @@ void GameApp::handleRenameTeam() {
             continue;
         }
 
-        if (isTeamNameUsedIgnoringCase(m_teamManager, newName, teamId)) {
+        if (m_teamManager.isNameUsedByAnotherTeam(newName, teamId)) {
             m_menu.showError("Tên đội đã được sử dụng. Vui lòng nhập lại tên đội.");
             continue;
         }
@@ -616,10 +623,14 @@ void GameApp::handleRenameTeam() {
     }
 
     if (m_teamManager.renameTeam(teamId, newName)) {
+        if (!saveTeams()) {
+            m_menu.showError("Lưu dữ liệu đội hình vào file thất bại.");
+            return;
+        }
         m_menu.showSuccess("Đội hình đã được đổi tên thành công.");
         const Team* renamedTeam = m_teamManager.getTeamById(teamId);
         if (renamedTeam != nullptr) {
-            m_menu.showInfo(buildTeamInfoLine(*renamedTeam));
+            m_menu.showTeamInfo(*renamedTeam);
         }
     } else {
         m_menu.showError("Đổi tên đội hình thất bại. Kiểm tra ID hoặc tên mới.");
@@ -627,12 +638,19 @@ void GameApp::handleRenameTeam() {
 }
 
 void GameApp::handleDeleteTeam() {
+    if (checkBattleLock()) {
+        return;
+    }
     int teamId = 0;
     if (!m_menu.readPositiveInt("Nhập ID đội cần xóa: ", teamId)) {
         return;
     }
 
     if (m_teamManager.deleteTeam(teamId)) {
+        if (!saveTeams()) {
+            m_menu.showError("Lưu dữ liệu đội hình vào file thất bại.");
+            return;
+        }
         m_menu.showSuccess("Đội hình đã được xóa thành công.");
     } else {
         m_menu.showError("Xóa đội hình thất bại. Kiểm tra ID đã nhập.");
@@ -640,6 +658,9 @@ void GameApp::handleDeleteTeam() {
 }
 
 void GameApp::handleAddCharacterToTeam() {
+    if (checkBattleLock()) {
+        return;
+    }
     int teamId = 0;
     while (true) {
         if (!m_menu.readPositiveInt("Nhập ID đội: ", teamId)) {
@@ -660,7 +681,7 @@ void GameApp::handleAddCharacterToTeam() {
         return;
     }
 
-    m_menu.showInfo(buildTeamInfoLine(*team));
+    m_menu.showTeamInfo(*team);
     while (true) {
         std::string line;
         if (!m_menu.readOptionalLine("Nhập ID nhân vật cần thêm (Enter để kết thúc): ", line)) {
@@ -697,12 +718,20 @@ void GameApp::handleAddCharacterToTeam() {
             continue;
         }
 
+        if (!saveTeams()) {
+            m_menu.showError("Lưu dữ liệu đội hình vào file thất bại.");
+            continue;
+        }
+
         m_menu.showSuccess("Thêm nhân vật ID " + std::to_string(characterId)
             + " (" + character->getName() + ") vào đội " + team->getName() + " thành công.");
     }
 }
 
 void GameApp::handleRemoveCharacterFromTeam() {
+    if (checkBattleLock()) {
+        return;
+    }
     int teamId = 0;
     while (true) {
         if (!m_menu.readPositiveInt("Nhập ID đội: ", teamId)) {
@@ -723,7 +752,7 @@ void GameApp::handleRemoveCharacterFromTeam() {
         return;
     }
 
-    m_menu.showInfo(buildTeamInfoLine(*team));
+    m_menu.showTeamInfo(*team);
     while (true) {
         std::string line;
         if (!m_menu.readOptionalLine("Nhập ID nhân vật cần xóa (Enter để kết thúc): ", line)) {
@@ -757,6 +786,11 @@ void GameApp::handleRemoveCharacterFromTeam() {
 
         if (!m_teamManager.removeCharacterFromTeam(teamId, characterId)) {
             m_menu.showError("Xóa nhân vật khỏi đội hình thất bại. Vui lòng kiểm tra lại.");
+            continue;
+        }
+
+        if (!saveTeams()) {
+            m_menu.showError("Lưu dữ liệu đội hình vào file thất bại.");
             continue;
         }
 
@@ -816,6 +850,22 @@ void GameApp::handleStartBattle() {
         }
         if (teamB->getCharacterIds().empty()) {
             m_menu.showError("Team B không có nhân vật. Vui lòng chọn team khác.");
+            continue;
+        }
+
+        // Kiểm tra hai đội không dùng chung nhân vật
+        bool hasOverlap = false;
+        for (int idA : teamA->getCharacterIds()) {
+            for (int idB : teamB->getCharacterIds()) {
+                if (idA == idB) {
+                    hasOverlap = true;
+                    break;
+                }
+            }
+            if (hasOverlap) break;
+        }
+        if (hasOverlap) {
+            m_menu.showError("Hai đội không được dùng chung nhân vật. Vui lòng chọn đội khác.");
             continue;
         }
 

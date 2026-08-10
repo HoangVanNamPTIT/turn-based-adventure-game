@@ -366,16 +366,29 @@ int Menu::showCharacterMenu() {
     printMenuScreen(m_output,
                     "QUẢN LÝ NHÂN VẬT",
                     {"1. Hiển thị tất cả nhân vật",
-                     "2. Thêm Chiến binh (Warrior)",
-                     "3. Thêm Pháp sư (Mage)",
-                     "4. Cập nhật nhân vật",
-                     "5. Xóa nhân vật",
-                     "6. Tìm nhân vật theo ID",
-                     "7. Tìm nhân vật theo tên",
+                     "2. Thêm nhân vật",
+                     "3. Cập nhật nhân vật",
+                     "4. Xóa nhân vật",
+                     "5. Tìm nhân vật theo ID",
+                     "6. Tìm nhân vật theo tên",
                      "0. Quay lại menu chính"});
 
     int choice = 0;
-    return readInt("Nhập lựa chọn của bạn: ", 0, 7, choice)
+    return readInt("Nhập lựa chọn của bạn: ", 0, 6, choice)
+        ? choice
+        : 0;
+}
+
+
+int Menu::showAddCharacterMenu() {
+    printMenuScreen(m_output,
+                    "THÊM NHÂN VẬT",
+                    {"1. Thêm Chiến binh (Warrior)",
+                     "2. Thêm Pháp sư (Mage)",
+                     "0. Quay lại menu quản lý nhân vật"});
+
+    int choice = 0;
+    return readInt("Nhập lựa chọn của bạn: ", 0, 2, choice)
         ? choice
         : 0;
 }
@@ -591,7 +604,7 @@ void Menu::displayCharacters(
 
 
 void Menu::displayTeams(const TeamManager& teamManager) const {
-    const std::vector<Team>& teams = teamManager.getAllTeams();
+    const std::vector<Team> teams = teamManager.getAllTeams();
 
     printSectionTitle(m_output,
                       "DANH SÁCH ĐỘI HÌNH",
@@ -623,7 +636,7 @@ void Menu::displayTeams(const TeamManager& teamManager) const {
 }
 
 void Menu::displayTeamSummaries(const TeamManager& teamManager) const {
-    const std::vector<Team>& teams = teamManager.getAllTeams();
+    const std::vector<Team> teams = teamManager.getAllTeams();
 
     printSectionTitle(m_output,
                       "DANH SÁCH TEAM HIỆN CÓ",
@@ -771,6 +784,27 @@ void Menu::showError(const std::string& message) const {
 
 void Menu::showInfo(const std::string& message) const {
     m_output << "[THÔNG BÁO] " << message << '\n';
+}
+
+
+void Menu::showTeamInfo(const Team& team) const {
+    std::ostringstream info;
+    info << "ID đội " << team.getId()
+         << " | " << team.getName()
+         << " | Danh sách nhân vật: ";
+
+    const std::vector<int>& characterIds = team.getCharacterIds();
+    if (characterIds.empty()) {
+        info << "(rỗng)";
+    } else {
+        for (std::size_t index = 0; index < characterIds.size(); ++index) {
+            if (index > 0) {
+                info << ", ";
+            }
+            info << characterIds[index];
+        }
+    }
+    m_output << "[THÔNG BÁO] " << info.str() << '\n';
 }
 
 

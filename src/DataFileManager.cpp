@@ -5,6 +5,7 @@
  */
 
 #include "DataFileManager.h"
+#include "CharacterRoster.h"
 #include "Utils.h"
 
 #include <algorithm>
@@ -112,7 +113,7 @@ bool DataFileManager::parseTeamLine(const std::string& rawLine, Team& outTeam) {
     }
 
     std::vector<std::string> tokens = Utils::Utils::split(line, '|');
-    if (tokens.size() < 2 || tokens.size() > 3) {
+    if (tokens.size() != 3) {
         return false;
     }
 
@@ -127,7 +128,7 @@ bool DataFileManager::parseTeamLine(const std::string& rawLine, Team& outTeam) {
     }
 
     std::vector<int> charIds;
-    if (tokens.size() == 3 && !tokens[2].empty()) {
+    if (!tokens[2].empty()) {
         std::vector<std::string> idTokens = Utils::Utils::split(tokens[2], ',');
         for (const auto& rawIdStr : idTokens) {
             std::string idStr = Utils::Utils::trim(rawIdStr);
@@ -175,10 +176,20 @@ bool DataFileManager::loadCharacters(const std::string& filePath, std::vector<st
     }
 
     std::string line;
+    std::size_t lineNumber = 0;
     while (std::getline(file, line)) {
+        ++lineNumber;
+        std::string trimmed = Utils::Utils::trim(line);
+        if (trimmed.empty() || trimmed[0] == '#') {
+            continue;
+        }
+
         auto character = parseCharacterLine(line);
         if (character) {
             outCharacters.push_back(character);
+        } else {
+            std::cerr << "DataFileManager: Bỏ qua dòng nhân vật không hợp lệ tại dòng "
+                      << lineNumber << ": Sai định dạng trường hoặc thuộc tính không hợp lệ." << std::endl;
         }
     }
     file.close();
@@ -204,6 +215,29 @@ bool DataFileManager::saveCharacters(const std::string& filePath, const std::vec
     return true;
 }
 
+bool DataFileManager::saveCharacters(const std::string& filePath, const std::vector<const Character*>& characters) {
+    std::ofstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "DataFileManager: Error opening file for writing characters: " << filePath << std::endl;
+        return false;
+    }
+
+    for (const Character* character : characters) {
+        if (character) {
+            std::string serialized = serializeCharacter(*character);
+            if (!serialized.empty()) {
+                file << serialized << "\n";
+            }
+        }
+    }
+    file.close();
+    return true;
+}
+
+bool DataFileManager::saveCharacters(const std::string& filePath, const CharacterRoster& roster) {
+    return saveCharacters(filePath, roster.getAllCharacters());
+}
+
 bool DataFileManager::loadTeams(const std::string& filePath, std::vector<Team>& outTeams) {
     outTeams.clear();
     std::ifstream file(filePath);
@@ -213,10 +247,20 @@ bool DataFileManager::loadTeams(const std::string& filePath, std::vector<Team>& 
     }
 
     std::string line;
+    std::size_t lineNumber = 0;
     while (std::getline(file, line)) {
+        ++lineNumber;
+        std::string trimmed = Utils::Utils::trim(line);
+        if (trimmed.empty() || trimmed[0] == '#') {
+            continue;
+        }
+
         Team team;
         if (parseTeamLine(line, team)) {
             outTeams.push_back(team);
+        } else {
+            std::cerr << "DataFileManager: Bỏ qua dòng đội hình không hợp lệ tại dòng "
+                      << lineNumber << ": Sai định dạng trường hoặc số token không hợp lệ." << std::endl;
         }
     }
     file.close();
@@ -234,6 +278,25 @@ bool DataFileManager::saveTeams(const std::string& filePath, const std::vector<T
         std::string serialized = serializeTeam(team);
         if (!serialized.empty()) {
             file << serialized << "\n";
+        }
+    }
+    file.close();
+    return true;
+}
+
+bool DataFileManager::saveTeams(const std::string& filePath, const std::vector<std::unique_ptr<Team>>& teams) {
+    std::ofstream file(filePath);
+    if (!file.is_open()) {
+        std::cerr << "DataFileManager: Error opening file for writing teams: " << filePath << std::endl;
+        return false;
+    }
+
+    for (const auto& team : teams) {
+        if (team != nullptr) {
+            std::string serialized = serializeTeam(*team);
+            if (!serialized.empty()) {
+                file << serialized << "\n";
+            }
         }
     }
     file.close();

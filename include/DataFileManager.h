@@ -21,15 +21,20 @@
 
 namespace TurnBasedGame {
 
+class CharacterRoster;
+
 class DataFileManager {
 public:
     // Character Read / Write
     static bool loadCharacters(const std::string& filePath, std::vector<std::shared_ptr<Character>>& outCharacters);
     static bool saveCharacters(const std::string& filePath, const std::vector<std::shared_ptr<Character>>& characters);
+    static bool saveCharacters(const std::string& filePath, const std::vector<const Character*>& characters);
+    static bool saveCharacters(const std::string& filePath, const CharacterRoster& roster);
 
     // Team Read / Write
     static bool loadTeams(const std::string& filePath, std::vector<Team>& outTeams);
     static bool saveTeams(const std::string& filePath, const std::vector<Team>& teams);
+    static bool saveTeams(const std::string& filePath, const std::vector<std::unique_ptr<Team>>& teams);
 
     // Parsing and Serialization helpers
     static std::shared_ptr<Character> parseCharacterLine(const std::string& line);

@@ -12,6 +12,7 @@
 #include "DataFileManager.h"
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <iostream>
 
@@ -28,7 +29,7 @@ bool TeamManager::createTeam(
         return false;
     }
 
-    m_teams.emplace_back(teamId, teamName);
+    m_teams.push_back(std::unique_ptr<Team>(new Team(teamId, teamName)));
     return true;
 }
 
@@ -55,7 +56,7 @@ bool TeamManager::renameTeam(
         return false;
     }
 
-    if (team->getName() == newName) {
+    if ((*team)->getName() == newName) {
         return true;
     }
 
@@ -63,18 +64,18 @@ bool TeamManager::renameTeam(
         return false;
     }
 
-    team->setName(newName);
+    (*team)->setName(newName);
     return true;
 }
 
 Team* TeamManager::getTeamById(int teamId) {
     TeamIterator team = findTeamById(teamId);
-    return team == m_teams.end() ? nullptr : &(*team);
+    return team == m_teams.end() ? nullptr : team->get();
 }
 
 const Team* TeamManager::getTeamById(int teamId) const {
     ConstTeamIterator team = findTeamById(teamId);
-    return team == m_teams.cend() ? nullptr : &(*team);
+    return team == m_teams.cend() ? nullptr : team->get();
 }
 
 bool TeamManager::teamExists(int teamId) const {
@@ -98,12 +99,12 @@ bool TeamManager::addCharacterToTeam(
 
     if (characterId <= 0
         || roster.findById(characterId) == nullptr
-        || team->hasCharacterId(characterId)
-        || team->getCharacterIds().size() >= MAX_CHARACTERS_PER_TEAM) {
+        || (*team)->hasCharacterId(characterId)
+        || (*team)->getCharacterIds().size() >= MAX_CHARACTERS_PER_TEAM) {
         return false;
     }
 
-    team->addCharacterId(characterId);
+    (*team)->addCharacterId(characterId);
     return true;
 }
 
@@ -116,7 +117,7 @@ bool TeamManager::removeCharacterFromTeam(
         return false;
     }
 
-    return team->removeCharacterId(characterId);
+    return (*team)->removeCharacterId(characterId);
 }
 
 bool TeamManager::removeCharacterFromAllTeams(int characterId) {
@@ -125,54 +126,23 @@ bool TeamManager::removeCharacterFromAllTeams(int characterId) {
     }
 
     for (auto& team : m_teams) {
-        team.removeCharacterId(characterId);
+        if (team != nullptr) {
+            team->removeCharacterId(characterId);
+        }
     }
 
     return true;
 }
 
-const std::vector<Team>& TeamManager::getAllTeams() const {
-    return m_teams;
-}
-
-void TeamManager::displayTeam(int teamId) const {
-    const Team* team = getTeamById(teamId);
-    if (team == nullptr) {
-        std::cout << "Team not found: " << teamId << std::endl;
-        return;
-    }
-
-    std::cout << "Team " << team->getId() << ": " << team->getName() << std::endl;
-    const auto& characterIds = team->getCharacterIds();
-    if (characterIds.empty()) {
-        std::cout << "  No characters assigned." << std::endl;
-        return;
-    }
-
-    std::cout << "  Characters:";
-    for (int id : characterIds) {
-        std::cout << " " << id;
-    }
-    std::cout << std::endl;
-}
-
-void TeamManager::displayAllTeams() const {
-    if (m_teams.empty()) {
-        std::cout << "No teams available." << std::endl;
-        return;
-    }
-
+std::vector<Team> TeamManager::getAllTeams() const {
+    std::vector<Team> result;
+    result.reserve(m_teams.size());
     for (const auto& team : m_teams) {
-        std::cout << "Team " << team.getId() << ": " << team.getName();
-        std::cout << " [" << team.getCharacterIds().size() << " members]" << std::endl;
-        if (!team.getCharacterIds().empty()) {
-            std::cout << "  Characters:";
-            for (int id : team.getCharacterIds()) {
-                std::cout << " " << id;
-            }
-            std::cout << std::endl;
+        if (team != nullptr) {
+            result.push_back(*team);
         }
     }
+    return result;
 }
 
 void TeamManager::clear() {
@@ -189,7 +159,7 @@ bool TeamManager::load(
         return false;
     }
 
-    std::vector<Team> loadedTeams;
+    std::vector<std::unique_ptr<Team>> loadedTeams;
     std::string line;
     std::size_t lineNumber = 0;
 
@@ -212,14 +182,14 @@ bool TeamManager::load(
             || std::any_of(
                    loadedTeams.begin(),
                    loadedTeams.end(),
-                   [team](const Team& existing) {
-                       return existing.getId() == team.getId();
+                   [&team](const std::unique_ptr<Team>& existing) {
+                       return existing != nullptr && existing->getId() == team.getId();
                    })
             || std::any_of(
                    loadedTeams.begin(),
                    loadedTeams.end(),
-                   [team](const Team& existing) {
-                       return existing.getName() == team.getName();
+                   [&team](const std::unique_ptr<Team>& existing) {
+                       return existing != nullptr && existing->getName() == team.getName();
                    })) {
             std::cerr << "TeamManager: Skipping invalid or duplicate team line "
                       << lineNumber << "." << std::endl;
@@ -247,7 +217,7 @@ bool TeamManager::load(
             continue;
         }
 
-        loadedTeams.push_back(team);
+        loadedTeams.push_back(std::unique_ptr<Team>(new Team(team)));
     }
 
     file.close();
@@ -263,8 +233,8 @@ TeamManager::TeamIterator TeamManager::findTeamById(int teamId) {
     return std::find_if(
         m_teams.begin(),
         m_teams.end(),
-        [teamId](const Team& team) {
-            return team.getId() == teamId;
+        [teamId](const std::unique_ptr<Team>& team) {
+            return team != nullptr && team->getId() == teamId;
         });
 }
 
@@ -273,8 +243,8 @@ TeamManager::ConstTeamIterator TeamManager::findTeamById(
     return std::find_if(
         m_teams.cbegin(),
         m_teams.cend(),
-        [teamId](const Team& team) {
-            return team.getId() == teamId;
+        [teamId](const std::unique_ptr<Team>& team) {
+            return team != nullptr && team->getId() == teamId;
         });
 }
 
@@ -282,12 +252,27 @@ bool TeamManager::isNameUsedByAnotherTeam(
     const std::string& teamName,
     int exceptTeamId) const {
 
+    // So sánh không phân biệt hoa/thường để nhất quán với UI layer
+    std::string lowerName = teamName;
+    std::transform(
+        lowerName.begin(), lowerName.end(), lowerName.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
     return std::any_of(
         m_teams.cbegin(),
         m_teams.cend(),
-        [teamName, exceptTeamId](const Team& team) {
-            return team.getName() == teamName
-                && team.getId() != exceptTeamId;
+        [lowerName, exceptTeamId](const std::unique_ptr<Team>& team) {
+            if (team == nullptr) return false;
+            std::string existingLower = team->getName();
+            std::transform(
+                existingLower.begin(),
+                existingLower.end(),
+                existingLower.begin(),
+                [](unsigned char c) {
+                    return static_cast<char>(std::tolower(c));
+                });
+            return existingLower == lowerName
+                && team->getId() != exceptTeamId;
         });
 }
 
@@ -298,6 +283,11 @@ bool TeamManager::isValidTeamId(int teamId) const {
 bool TeamManager::isValidTeamName(
     const std::string& teamName) const {
     if (teamName.empty()) {
+        return false;
+    }
+
+    if (teamName.find('|') != std::string::npos
+        || teamName.find(',') != std::string::npos) {
         return false;
     }
 

@@ -149,9 +149,19 @@ void testCharacter_ConstructorAndGetters() {
     ASSERT_EQ(warrior.getMaxHp(), 100);
     ASSERT_TRUE(warrior.isAlive());
 
-    Warrior invalidChar(-5, "", -10, -5);
-    ASSERT_EQ(invalidChar.getId(), 0);
-    ASSERT_EQ(invalidChar.getMaxHp(), 1);
+    // OOP-TC-01: Setters với tên whitespace/delimiter, maxHp<=0, damage<=0 -> State cũ giữ nguyên!
+    ASSERT_FALSE(warrior.setName("   "));
+    ASSERT_FALSE(warrior.setName("Arthur|King"));
+    ASSERT_FALSE(warrior.setName("Arthur,King"));
+    ASSERT_EQ(warrior.getName(), "Arthur"); // State cũ không đổi!
+
+    ASSERT_FALSE(warrior.setMaxHp(0));
+    ASSERT_FALSE(warrior.setMaxHp(-10));
+    ASSERT_EQ(warrior.getMaxHp(), 100); // State cũ không đổi!
+
+    ASSERT_FALSE(warrior.setAttackPower(0));
+    ASSERT_FALSE(warrior.setAttackPower(-5));
+    ASSERT_EQ(warrior.getAttackPower(), 25); // State cũ không đổi!
 }
 
 void testCharacter_SettersAndValidation() {
@@ -227,9 +237,23 @@ void testTeam_ConstructorsAndSetters() {
     Team team(10, "Alpha Squad", {101, 102});
     ASSERT_EQ(team.getId(), 10);
     ASSERT_EQ(team.getName(), "Alpha Squad");
-    team.setId(-5);
-    ASSERT_EQ(team.getId(), 0);
-    ASSERT_FALSE(team.setName(""));
+
+    // OOP-TC-02: Team luôn giữ ID dương, tên hợp lệ, member dương/unique/không quá 5.
+    // Public setter từ chối ID âm/0 (không tạo ID=0)
+    ASSERT_FALSE(team.setId(-5));
+    ASSERT_FALSE(team.setId(0));
+    ASSERT_EQ(team.getId(), 10); // ID cũ không đổi (không thành 0)!
+
+    ASSERT_FALSE(team.setName("   "));
+    ASSERT_FALSE(team.setName("Alpha|Squad"));
+    ASSERT_FALSE(team.setName("Alpha,Squad"));
+    ASSERT_EQ(team.getName(), "Alpha Squad"); // Tên cũ không đổi!
+
+    // Invariant member list: từ chối duplicate, âm, >5
+    ASSERT_FALSE(team.setCharacterIds({101, 101})); // duplicate
+    ASSERT_FALSE(team.setCharacterIds({-1})); // âm
+    ASSERT_FALSE(team.setCharacterIds({1, 2, 3, 4, 5, 6})); // > 5
+    ASSERT_EQ(team.getCharacterIds().size(), static_cast<size_t>(2));
 }
 
 void testTeam_CharacterIdOperations() {
@@ -260,6 +284,10 @@ void testRoster_AddDuplicatesAndInvalid() {
     roster.addWarrior(101, "Ares", 100, 30);
     ASSERT_FALSE(roster.addWarrior(101, "Duplicate Ares", 100, 30));
     ASSERT_FALSE(roster.addWarrior(0, "Invalid ID", 100, 30));
+
+    // OOP-TC-03: Generic insertion addCharacter(unique_ptr<Character>) từ chối subtype có dữ liệu gốc không hợp lệ (attackPower = 0)
+    std::unique_ptr<Character> invalidWarrior(new Warrior(200, "Arthur", 100, 0));
+    ASSERT_FALSE(roster.addCharacter(std::move(invalidWarrior)));
 }
 
 void testRoster_UpdateWarriorAndMage() {
@@ -426,6 +454,7 @@ void testParseTeamLine_CommentsAndEmpty() {
 void testParseTeamLine_MissingOrExtraTokens() {
     Team team;
     ASSERT_FALSE(DataFileManager::parseTeamLine("201", team));
+    ASSERT_FALSE(DataFileManager::parseTeamLine("201|Red Team", team));
     ASSERT_FALSE(DataFileManager::parseTeamLine("201|Red Team|101|EXTRA", team));
 }
 
@@ -501,12 +530,59 @@ void testBattleEngine_ResetBattle() {
     CharacterRoster roster;
     roster.addWarrior(101, "Ares", 100, 30);
     roster.addMage(102, "Luna", 80, 50, 40, 10, 15);
+
     Team teamA(201, "Red Team", {101});
     Team teamB(202, "Blue Team", {102});
+
     BattleEngine engine;
     engine.startBattle(teamA, teamB, roster);
+    engine.performAction(101, 102);
+
     engine.resetBattle();
     ASSERT_EQ(engine.getState(), BattleState::READY);
+    ASSERT_TRUE(engine.getTeamA() == nullptr);
+    ASSERT_TRUE(engine.getTeamB() == nullptr);
+    ASSERT_TRUE(engine.getCurrentActor() == nullptr);
+    ASSERT_EQ(engine.getRoundsPlayed(), static_cast<size_t>(0));
+}
+
+void testBattleEngine_TeamReallocationSafety() {
+    CharacterRoster roster;
+    roster.addWarrior(101, "Ares", 100, 30);
+    roster.addMage(102, "Luna", 80, 50, 40, 10, 15);
+
+    TeamManager teamManager;
+    teamManager.createTeam(1, "Team One");
+    teamManager.createTeam(2, "Team Two");
+    teamManager.addCharacterToTeam(1, 101, roster);
+    teamManager.addCharacterToTeam(2, 102, roster);
+
+    const Team* teamA = teamManager.getTeamById(1);
+    const Team* teamB = teamManager.getTeamById(2);
+    ASSERT_TRUE(teamA != nullptr);
+    ASSERT_TRUE(teamB != nullptr);
+
+    BattleEngine engine;
+    ASSERT_TRUE(engine.startBattle(*teamA, *teamB, roster));
+    ASSERT_EQ(engine.getTeamA()->getId(), 1);
+    ASSERT_EQ(engine.getTeamB()->getId(), 2);
+
+    // Thêm hàng loạt team mới vào TeamManager để kích hoạt reallocation std::vector<Team>
+    for (int i = 10; i < 50; ++i) {
+        teamManager.createTeam(i, "Extra Team " + std::to_string(i));
+    }
+
+    // Đọc battle.getTeamA() và battle.getTeamB() để xác nhận KHÔNG BỊ Use-After-Free
+    ASSERT_TRUE(engine.getTeamA() != nullptr);
+    ASSERT_EQ(engine.getTeamA()->getId(), 1);
+    ASSERT_EQ(engine.getTeamA()->getName(), "Team One");
+
+    ASSERT_TRUE(engine.getTeamB() != nullptr);
+    ASSERT_EQ(engine.getTeamB()->getId(), 2);
+    ASSERT_EQ(engine.getTeamB()->getName(), "Team Two");
+
+    ASSERT_TRUE(engine.performAction(101, 102));
+    ASSERT_EQ(engine.getRoundsPlayed(), static_cast<size_t>(1));
 }
 
 // ===========================================================================
@@ -514,7 +590,7 @@ void testBattleEngine_ResetBattle() {
 // ===========================================================================
 
 void testMenu_ReadHelpersAndDisplay() {
-    std::stringstream input("2\n101\nHero\ny\n");
+    std::stringstream input("2\n101\nHero\ny\n1\n");
     std::stringstream output;
     Menu menu(input, output);
 
@@ -523,10 +599,11 @@ void testMenu_ReadHelpersAndDisplay() {
     ASSERT_EQ(val, 2);
     ASSERT_TRUE(menu.readPositiveInt("Prompt: ", val));
     ASSERT_EQ(val, 101);
+    ASSERT_EQ(menu.showAddCharacterMenu(), 1);
 }
 
 void testGameApp_ExecutionFlow() {
-    std::stringstream input("0\n");
+    std::stringstream input("4\n");
     std::stringstream output;
     GameApp app(input, output);
     ASSERT_EQ(app.run(), 0);
@@ -606,6 +683,7 @@ int main() {
     RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_02", "Validate battle setup rules and team status", testBattleEngine_SetupValidation);
     RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_03", "Full combat round flow, turn transitions and victory", testBattleEngine_FullCombatFlow);
     RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_04", "Reset battle state back to READY", testBattleEngine_ResetBattle);
+    RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_05", "Team vector reallocation safety without use-after-free (OOP-TC-08)", testBattleEngine_TeamReallocationSafety);
 
     std::cout << "\n--- [MODULE 8: Menu & Application Orchestrator] ---" << std::endl;
     RUN_SYSTEM_TEST("Menu", "TC_APP_01", "Menu input parsing helpers and screen displays", testMenu_ReadHelpersAndDisplay);

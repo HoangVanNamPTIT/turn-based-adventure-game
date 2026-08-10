@@ -13,12 +13,12 @@
 #include <vector>
 
 #include "BattleState.h"
+#include "Team.h"
 
 namespace TurnBasedGame {
 
 class Character;
 class CharacterRoster;
-class Team;
 class TeamManager;
 
 class BattleEngine {
@@ -63,9 +63,11 @@ private:
     void moveToNextTeam();
 
     CharacterRoster* m_roster{nullptr};
-    const Team* m_teamA{nullptr};
-    const Team* m_teamB{nullptr};
-    const Team* m_winnerTeam{nullptr};
+    const Team* m_teamA{nullptr};      // trỏ vào m_teamASnapshot
+    const Team* m_teamB{nullptr};      // trỏ vào m_teamBSnapshot
+    const Team* m_winnerTeam{nullptr}; // trỏ vào một trong hai snapshot
+    Team m_teamASnapshot;              // bản sao của teamA tại thời điểm startBattle
+    Team m_teamBSnapshot;              // bản sao của teamB tại thời điểm startBattle
     BattleState m_state{BattleState::READY};
     std::size_t m_roundsPlayed{0};
     // 0 = team A, 1 = team B; dùng để luân phiên lượt đánh.

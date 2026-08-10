@@ -200,13 +200,6 @@ void testParseTeamLine_Success() {
     ASSERT_EQ(team.getCharacterIds()[0], 101);
     ASSERT_EQ(team.getCharacterIds()[1], 102);
 
-    Team emptyTeam;
-    std::string lineWithoutChars = "202|Blue Team";
-    ASSERT_TRUE(DataFileManager::parseTeamLine(lineWithoutChars, emptyTeam));
-    ASSERT_EQ(emptyTeam.getId(), 202);
-    ASSERT_EQ(emptyTeam.getName(), "Blue Team");
-    ASSERT_TRUE(emptyTeam.getCharacterIds().empty());
-
     Team trailingPipeTeam;
     std::string lineTrailingPipe = "203|Green Team|";
     ASSERT_TRUE(DataFileManager::parseTeamLine(lineTrailingPipe, trailingPipeTeam));
@@ -224,10 +217,13 @@ void testParseTeamLine_CommentsAndEmpty() {
 
 void testParseTeamLine_MissingOrExtraTokens() {
     Team team;
-    // Missing team name
+    // Missing team name (1 token)
     ASSERT_FALSE(DataFileManager::parseTeamLine("201", team));
 
-    // Extra token field
+    // Missing character list field (2 tokens, missing 3rd field delimiter)
+    ASSERT_FALSE(DataFileManager::parseTeamLine("201|Red Team", team));
+
+    // Extra token field (4 tokens)
     ASSERT_FALSE(DataFileManager::parseTeamLine("201|Red Team|101,102|EXTRA", team));
 }
 
@@ -301,6 +297,42 @@ void testLoadTeams_NonExistentFile() {
     ASSERT_FALSE(DataFileManager::loadTeams("non_existent_teams_xyz.txt", loaded));
 }
 
+void testLoadCharacters_CorruptedLines_SkipsAndLoadsValid() {
+    std::string tempFile = "temp_test_corrupted_chars.txt";
+    std::ofstream out(tempFile);
+    out << "WARRIOR|101|Ares|100|30\n";
+    out << "INVALID_LINE_CORRUPTED|999\n"; // corrupted line
+    out << "MAGE|102|Luna|80|50|40|10|15\n";
+    out.close();
+
+    std::vector<std::shared_ptr<Character>> loaded;
+    ASSERT_TRUE(DataFileManager::loadCharacters(tempFile, loaded));
+    // Must load 2 valid characters and completely skip line 2 without crash
+    ASSERT_EQ(loaded.size(), static_cast<size_t>(2));
+    ASSERT_EQ(loaded[0]->getId(), 101);
+    ASSERT_EQ(loaded[1]->getId(), 102);
+
+    removeTempFile(tempFile);
+}
+
+void testLoadTeams_CorruptedLines_SkipsAndLoadsValid() {
+    std::string tempFile = "temp_test_corrupted_teams.txt";
+    std::ofstream out(tempFile);
+    out << "201|Red Team|101,102\n";
+    out << "202|Corrupted Team|101,abc,102\n"; // invalid character ID list token
+    out << "203|Green Team|\n";
+    out.close();
+
+    std::vector<Team> loaded;
+    ASSERT_TRUE(DataFileManager::loadTeams(tempFile, loaded));
+    // Must load 2 valid teams and completely discard line 2 (not keeping partial IDs)
+    ASSERT_EQ(loaded.size(), static_cast<size_t>(2));
+    ASSERT_EQ(loaded[0].getId(), 201);
+    ASSERT_EQ(loaded[1].getId(), 203);
+
+    removeTempFile(tempFile);
+}
+
 // ---------------------------------------------------------------------------
 // Main Runner
 // ---------------------------------------------------------------------------
@@ -322,6 +354,7 @@ int main() {
 
     RUN_TEST(testLoadAndSaveCharacters_RoundTrip);
     RUN_TEST(testLoadCharacters_NonExistentFile);
+    RUN_TEST(testLoadCharacters_CorruptedLines_SkipsAndLoadsValid);
 
     RUN_TEST(testParseTeamLine_Success);
     RUN_TEST(testParseTeamLine_CommentsAndEmpty);
@@ -333,6 +366,7 @@ int main() {
 
     RUN_TEST(testLoadAndSaveTeams_RoundTrip);
     RUN_TEST(testLoadTeams_NonExistentFile);
+    RUN_TEST(testLoadTeams_CorruptedLines_SkipsAndLoadsValid);
 
     std::cout << "==================================================" << std::endl;
     std::cout << " Summary: " << g_testsPassed << " passed, " << g_testsFailed << " failed." << std::endl;
