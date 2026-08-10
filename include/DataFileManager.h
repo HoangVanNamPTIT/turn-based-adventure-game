@@ -18,6 +18,7 @@
 #include "Warrior.h"
 #include "Mage.h"
 #include "Team.h"
+#include "TeamRecord.h"
 
 namespace TurnBasedGame {
 
@@ -35,6 +36,13 @@ public:
     static bool loadTeams(const std::string& filePath, std::vector<Team>& outTeams);
     static bool saveTeams(const std::string& filePath, const std::vector<Team>& teams);
     static bool saveTeams(const std::string& filePath, const std::vector<std::unique_ptr<Team>>& teams);
+
+    // Team Statistics Read / Write / Update
+    static bool loadTeamStats(const std::string& filePath, std::vector<TeamRecord>& outStats);
+    static bool saveTeamStats(const std::string& filePath, const std::vector<TeamRecord>& stats);
+    static bool parseTeamStatsLine(const std::string& line, TeamRecord& outRecord);
+    static std::string serializeTeamStats(const TeamRecord& record);
+    static bool recordBattleResult(const std::string& filePath, const Team& winnerTeam, const Team& loserTeam);
 
     // Parsing and Serialization helpers
     static std::shared_ptr<Character> parseCharacterLine(const std::string& line);

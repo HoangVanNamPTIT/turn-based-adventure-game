@@ -13,6 +13,7 @@
 #include "Menu.h"
 #include "Team.h"
 #include "TeamManager.h"
+#include "TeamRecord.h"
 #include "Utils.h"
 #include "Warrior.h"
 
@@ -484,6 +485,49 @@ void testLoadAndSaveTeams_RoundTrip() {
     removeTempFile(tempFile);
 }
 
+void testTeamStats_PersistenceAndRecordResult() {
+    const std::string testFile = "test_team_stats_temp.txt";
+    std::remove(testFile.c_str());
+
+    Team teamA(201, "Red Team", {101, 103});
+    Team teamB(202, "Blue Team", {102});
+
+    ASSERT_TRUE(DataFileManager::recordBattleResult(testFile, teamA, teamB));
+
+    std::vector<TeamRecord> stats;
+    ASSERT_TRUE(DataFileManager::loadTeamStats(testFile, stats));
+    ASSERT_EQ(stats.size(), static_cast<std::size_t>(2));
+
+    ASSERT_EQ(stats[0].teamId, 201);
+    ASSERT_EQ(stats[0].teamName, "Red Team");
+    ASSERT_EQ(stats[0].wins, 1);
+    ASSERT_EQ(stats[0].losses, 0);
+
+    ASSERT_EQ(stats[1].teamId, 202);
+    ASSERT_EQ(stats[1].teamName, "Blue Team");
+    ASSERT_EQ(stats[1].wins, 0);
+    ASSERT_EQ(stats[1].losses, 1);
+
+    // Record second battle where teamB wins against teamA
+    ASSERT_TRUE(DataFileManager::recordBattleResult(testFile, teamB, teamA));
+
+    stats.clear();
+    ASSERT_TRUE(DataFileManager::loadTeamStats(testFile, stats));
+    ASSERT_EQ(stats.size(), static_cast<std::size_t>(2));
+
+    for (const auto& rec : stats) {
+        if (rec.teamId == 201) {
+            ASSERT_EQ(rec.wins, 1);
+            ASSERT_EQ(rec.losses, 1);
+        } else if (rec.teamId == 202) {
+            ASSERT_EQ(rec.wins, 1);
+            ASSERT_EQ(rec.losses, 1);
+        }
+    }
+
+    std::remove(testFile.c_str());
+}
+
 void testLoadTeams_NonExistentFile() {
     std::vector<Team> loaded;
     ASSERT_FALSE(DataFileManager::loadTeams("non_existent_teams_xyz.txt", loaded));
@@ -614,7 +658,7 @@ void testMenu_ReadHelpersAndDisplay() {
 }
 
 void testGameApp_ExecutionFlow() {
-    std::stringstream input("4\n");
+    std::stringstream input("4\n0\n5\n");
     std::stringstream output;
     GameApp app(input, output);
     ASSERT_EQ(app.run(), 0);
@@ -688,6 +732,7 @@ int main() {
     RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_16", "Serialize invalid team returns empty string", testSerializeTeam_InvalidTeam_ReturnsEmpty);
     RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_17", "Load and Save teams round-trip IO", testLoadAndSaveTeams_RoundTrip);
     RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_18", "Load teams from non-existent file", testLoadTeams_NonExistentFile);
+    RUN_SYSTEM_TEST("DataFileManager", "TC_DFM_19", "Record and load team win/loss statistics", testTeamStats_PersistenceAndRecordResult);
 
     std::cout << "\n--- [MODULE 7: BattleEngine & BattleState] ---" << std::endl;
     RUN_SYSTEM_TEST("BattleEngine", "TC_BAT_01", "Convert BattleState enum to string", testBattleState_ToString);

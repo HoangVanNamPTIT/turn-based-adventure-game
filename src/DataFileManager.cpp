@@ -303,4 +303,148 @@ bool DataFileManager::saveTeams(const std::string& filePath, const std::vector<s
     return true;
 }
 
+bool DataFileManager::parseTeamStatsLine(const std::string& line, TeamRecord& outRecord) {
+    std::string trimmed = Utils::Utils::trim(line);
+    if (trimmed.empty() || trimmed[0] == '#') {
+        return false;
+    }
+
+    std::vector<std::string> tokens = Utils::Utils::split(trimmed, '|');
+    if (tokens.size() < 5) {
+        return false;
+    }
+
+    int teamId = Utils::Utils::parseInt(tokens[0], 0);
+    std::string teamName = Utils::Utils::trim(tokens[1]);
+    if (teamId <= 0 || teamName.empty()) {
+        return false;
+    }
+
+    std::vector<int> characterIds;
+    std::string idsStr = Utils::Utils::trim(tokens[2]);
+    if (!idsStr.empty() && idsStr != "-") {
+        std::vector<std::string> idTokens = Utils::Utils::split(idsStr, ',');
+        for (const auto& idTok : idTokens) {
+            int id = Utils::Utils::parseInt(idTok, 0);
+            if (id > 0) {
+                characterIds.push_back(id);
+            }
+        }
+    }
+
+    int wins = Utils::Utils::parseInt(tokens[3], 0);
+    int losses = Utils::Utils::parseInt(tokens[4], 0);
+    if (wins < 0) wins = 0;
+    if (losses < 0) losses = 0;
+
+    outRecord.teamId = teamId;
+    outRecord.teamName = teamName;
+    outRecord.characterIds = characterIds;
+    outRecord.wins = wins;
+    outRecord.losses = losses;
+    return true;
+}
+
+std::string DataFileManager::serializeTeamStats(const TeamRecord& record) {
+    if (record.teamId <= 0 || record.teamName.empty()) {
+        return "";
+    }
+
+    std::ostringstream builder;
+    builder << record.teamId << "|"
+            << record.teamName << "|";
+
+    if (record.characterIds.empty()) {
+        builder << "-";
+    } else {
+        for (std::size_t index = 0; index < record.characterIds.size(); ++index) {
+            if (index > 0) {
+                builder << ",";
+            }
+            builder << record.characterIds[index];
+        }
+    }
+
+    builder << "|" << record.wins << "|" << record.losses;
+    return builder.str();
+}
+
+bool DataFileManager::loadTeamStats(const std::string& filePath, std::vector<TeamRecord>& outStats) {
+    outStats.clear();
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        TeamRecord rec;
+        if (parseTeamStatsLine(line, rec)) {
+            outStats.push_back(rec);
+        }
+    }
+    file.close();
+    return true;
+}
+
+bool DataFileManager::saveTeamStats(const std::string& filePath, const std::vector<TeamRecord>& stats) {
+    std::ofstream file(filePath);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    for (const auto& rec : stats) {
+        std::string serialized = serializeTeamStats(rec);
+        if (!serialized.empty()) {
+            file << serialized << "\n";
+        }
+    }
+    file.close();
+    return true;
+}
+
+bool DataFileManager::recordBattleResult(const std::string& filePath, const Team& winnerTeam, const Team& loserTeam) {
+    std::vector<TeamRecord> stats;
+    loadTeamStats(filePath, stats);
+
+    bool winnerFound = false;
+    bool loserFound = false;
+
+    for (auto& rec : stats) {
+        if (rec.teamId == winnerTeam.getId()) {
+            rec.teamName = winnerTeam.getName();
+            rec.characterIds = winnerTeam.getCharacterIds();
+            rec.wins += 1;
+            winnerFound = true;
+        } else if (rec.teamId == loserTeam.getId()) {
+            rec.teamName = loserTeam.getName();
+            rec.characterIds = loserTeam.getCharacterIds();
+            rec.losses += 1;
+            loserFound = true;
+        }
+    }
+
+    if (!winnerFound) {
+        TeamRecord wRec;
+        wRec.teamId = winnerTeam.getId();
+        wRec.teamName = winnerTeam.getName();
+        wRec.characterIds = winnerTeam.getCharacterIds();
+        wRec.wins = 1;
+        wRec.losses = 0;
+        stats.push_back(wRec);
+    }
+
+    if (!loserFound) {
+        TeamRecord lRec;
+        lRec.teamId = loserTeam.getId();
+        lRec.teamName = loserTeam.getName();
+        lRec.characterIds = loserTeam.getCharacterIds();
+        lRec.wins = 0;
+        lRec.losses = 1;
+        stats.push_back(lRec);
+    }
+
+    return saveTeamStats(filePath, stats);
+}
+
 } // namespace TurnBasedGame

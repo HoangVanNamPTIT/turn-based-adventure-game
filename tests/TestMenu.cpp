@@ -104,12 +104,12 @@ void testMenu_Confirm() {
 // ---------------------------------------------------------------------------
 
 void testMenu_Displays() {
-    std::stringstream input("0\n");
+    std::stringstream input("5\n");
     std::stringstream output;
     Menu menu(input, output);
 
     int choice = menu.showMainMenu();
-    ASSERT_EQ(choice, 0);
+    ASSERT_EQ(choice, 5);
 
     CharacterRoster roster;
     roster.addWarrior(101, "Ares", 100, 30);
